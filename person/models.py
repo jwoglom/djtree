@@ -24,9 +24,9 @@ class PersonName(models.Model):
     person = models.ForeignKey('Person', on_delete=models.CASCADE)
     name = models.ForeignKey('Name', on_delete=models.CASCADE)
     class Type(models.TextChoices):
-        BIRTH = "birth"
-        MARRIAGE = "marriage"
-        IMMIGRATION = "immigration"
+        BIRTH = "born as"
+        MARRIAGE = "married as"
+        IMMIGRATION = "immigrated as"
     name_type = models.CharField(max_length=100, choices=Type, blank=True)
 
     def __str__(self):
