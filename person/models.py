@@ -37,7 +37,7 @@ class PersonName(models.Model):
 
 class Event(models.Model):
     date = models.DateField()
-    person = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='events')
+    person = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='%(class)s')
     comment = models.TextField(blank=True)
 
     class Meta:
@@ -47,7 +47,7 @@ class Event(models.Model):
         return f"{self.__class__.__name__.replace('Event', '')} event for {self.person} on {self.date}"
 
 class CoupleEvent(Event):
-    other_person = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='couple_events_as_other')
+    other_person = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='%(class)s_as_partner')
     location = models.CharField(max_length=200, blank=True)
 
     class Meta:
