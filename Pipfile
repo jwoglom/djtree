@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 django = "*"
 python-webpack-boilerplate = "*"
+djangorestframework = "*"
 
 [dev-packages]
 ptpython = "*"
