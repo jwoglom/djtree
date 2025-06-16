@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import QuerySet
 from django.core.exceptions import ValidationError
 
 # Create your models here.
@@ -9,9 +10,9 @@ class Person(models.Model):
         FEMALE = 'F', 'Female'
 
     names = models.ManyToManyField('Name', through='PersonName')
-    parents = models.ManyToManyField('self', through='ParentChildRelationship',
+    children = models.ManyToManyField('self', through='ParentChildRelationship',
                                    symmetrical=False,
-                                   related_name='children')
+                                   related_name='parents')
     gender = models.CharField(max_length=1, choices=Gender, default=Gender.UNKNOWN)
     is_living = models.BooleanField(default=True)
 
@@ -48,6 +49,19 @@ class Person(models.Model):
         """Get the current spouse of this person"""
         return self.spouses.filter(marriageevents__ended=False).first()
     
+    @property
+    def events(self):
+        """Get all events for this person"""
+        return [
+            *self.birthevents.all(),
+            *self.deathevents.all(),
+            *self.marriageevents.all(),
+            *self.divorceevents.all(),
+            *self.immigrationevents.all(),
+            *self.citizenshipevents.all()
+        ]
+
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         super().save(*args, **kwargs)
