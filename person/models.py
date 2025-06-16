@@ -18,9 +18,14 @@ class Person(models.Model):
     @property
     def name(self):
         return self.names.first()
-
-    def __str__(self):
-        return f"Person: {self.name}"
+    
+    @property
+    def birth(self):
+        return self.birthevents.first()
+    
+    @property
+    def death(self):
+        return self.deathevents.first()
 
     @property
     def siblings(self):
@@ -34,14 +39,26 @@ class Person(models.Model):
     def spouses(self):
         """Get all current and former spouses"""
         return Person.objects.filter(
-            models.Q(marriageevent__person=self, marriageevent__ended=False) |
-            models.Q(marriageevent__other_person=self, marriageevent__ended=False)
+            models.Q(marriageevents__person=self, marriageevents__ended=False) |
+            models.Q(marriageevents__other_person=self, marriageevents__ended=False)
         ).distinct()
 
     @property
     def spouse(self):
         """Get the current spouse of this person"""
-        return self.spouses.filter(marriageevent__ended=False).first()
+        return self.spouses.filter(marriageevents__ended=False).first()
+    
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if self.death and self.is_living:
+            self.is_living = False
+            self.save(update_fields=['is_living'])
+
+    def __str__(self):
+        birth_to_death = f" ({self.birth.date} - {f'died {self.death.date}' if self.death else 'present'})" if self.birth else ""
+        return f"{self.name}{birth_to_death}"
+
 
 # Names
 class Name(models.Model):
@@ -59,7 +76,7 @@ class PersonName(models.Model):
         BIRTH = "born as"
         MARRIAGE = "married as"
         IMMIGRATION = "immigrated as"
-    name_type = models.CharField(max_length=100, choices=Type, blank=True)
+    name_type = models.CharField(max_length=100, choices=Type, default=Type.BIRTH, blank=True)
 
     def __str__(self):
         return f"{self.name}{f' ({self.name_type})' if self.name_type else ''}"
@@ -68,7 +85,7 @@ class PersonName(models.Model):
 class ParentChildRelationship(models.Model):
     parent = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='parent_relationships')
     child = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='child_relationships')
-
+    
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -81,29 +98,31 @@ class ParentChildRelationship(models.Model):
         # Prevent self-relationships
         if self.parent == self.child:
             raise ValidationError("A person cannot be their own parent")
-
-        # Prevent duplicate parent relationships
-        if ParentChildRelationship.objects.filter(
-            parent=self.parent,
-            child=self.child
-        ).exclude(id=self.id).exists():
-            raise ValidationError("This parent-child relationship already exists")
-
-        # Prevent impossible relationships
-        if self.parent in self.child.get_siblings():
-            raise ValidationError("A person cannot be both a parent and a sibling")
-
-        # Prevent marrying your own child
-        if self.parent in self.child.get_spouses():
-            raise ValidationError("A person cannot be both a parent and a spouse")
+        
+        # Only perform these checks if both parent and child are saved
+        if self.parent.pk and self.child.pk:
+            # Prevent duplicate parent relationships
+            if ParentChildRelationship.objects.filter(
+                parent=self.parent,
+                child=self.child
+            ).exclude(id=self.id).exists():
+                raise ValidationError("This parent-child relationship already exists")
+            
+            # Prevent impossible relationships
+            if self.parent in self.child.siblings:
+                raise ValidationError("A person cannot be both a parent and a sibling")
+            
+            # Prevent marrying your own child
+            if self.parent in self.child.spouses:
+                raise ValidationError("A person cannot be both a parent and a spouse")
 
     def __str__(self):
         return f"{self.parent} is parent of {self.child}"
 
 # Events
 class Event(models.Model):
-    date = models.DateField()
-    person = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='%(class)s')
+    date = models.DateField(blank=True)
+    person = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='%(class)ss')
     comment = models.TextField(blank=True)
 
     class Meta:
@@ -113,7 +132,7 @@ class Event(models.Model):
         return f"{self.__class__.__name__.replace('Event', '')} event for {self.person} on {self.date}"
 
 class CoupleEvent(Event):
-    other_person = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='%(class)s_as_partner')
+    other_person = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='%(class)ss_as_partner')
     location = models.CharField(max_length=200, blank=True)
 
     class Meta:
@@ -123,19 +142,21 @@ class CoupleEvent(Event):
         # Prevent self-relationships
         if self.person == self.other_person:
             raise ValidationError("A person cannot have a relationship with themselves")
-
-        # Prevent marrying your own child
-        if self.other_person in self.person.children.all():
-            raise ValidationError("A person cannot marry their own child")
-
-        # Prevent marrying your own parent
-        if self.other_person in self.person.parents.all():
-            raise ValidationError("A person cannot marry their own parent")
+        
+        # Only perform these checks if both persons are saved
+        if self.person.pk and self.other_person.pk:
+            # Prevent marrying your own child
+            if self.other_person in self.person.children.all():
+                raise ValidationError("A person cannot marry their own child")
+            
+            # Prevent marrying your own parent
+            if self.other_person in self.person.parents.all():
+                raise ValidationError("A person cannot marry their own parent")
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         super().save(*args, **kwargs)
-
+        
         # Find or create the symmetric event
         symmetric_event, created = self.__class__.objects.get_or_create(
             person=self.other_person,
@@ -146,7 +167,7 @@ class CoupleEvent(Event):
                 'comment': self.comment
             }
         )
-
+        
         # If this is an update (not new) and the symmetric event exists,
         # update its fields to match this one
         if not is_new and not created:
@@ -212,6 +233,13 @@ class DeathEvent(Event):
                 name='unique_death_per_person'
             )
         ]
+    
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if self.person.is_living:
+            self.person.is_living = False
+            self.person.save(update_fields=['is_living'])
 
 class ImmigrationEvent(Event):
     from_country = models.CharField(max_length=100)

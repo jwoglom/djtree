@@ -30,18 +30,20 @@ class ChildRelationshipInline(admin.TabularInline):
 
 class PersonNameInline(admin.TabularInline):
     model = PersonName
-    extra = 1
+    extra = 0
 
 class BirthEventInline(admin.TabularInline):
     model = BirthEvent
     form = EventForm
     extra = 0
+    max_num = 1
     fields = ('date', 'location', 'comment')
 
 class DeathEventInline(admin.TabularInline):
     model = DeathEvent
     form = EventForm
     extra = 0
+    max_num = 1
     fields = ('date', 'location', 'cause', 'comment')
 
 class MarriageEventInline(admin.TabularInline):
@@ -84,6 +86,7 @@ class PersonAdmin(admin.ModelAdmin):
     ]
     list_display = ('__str__',)
     search_fields = ('names__first_name', 'names__last_name')
+    fields = ('gender',)
 
 class NameAdmin(admin.ModelAdmin):
     def get_model_perms(self, request):
