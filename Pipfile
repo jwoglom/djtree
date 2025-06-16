@@ -5,9 +5,6 @@ name = "pypi"
 
 [packages]
 django = "*"
-python = "*"
 
 [dev-packages]
-
-[requires]
-python_version = "3.12"
+ptpython = "*"
