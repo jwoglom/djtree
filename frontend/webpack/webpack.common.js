@@ -54,6 +54,7 @@ module.exports = {
     alias: {
       "~": Path.resolve(__dirname, "../src"),
     },
+    extensions: [".ts", ".js"],
   },
   module: {
     rules: [
@@ -61,6 +62,11 @@ module.exports = {
         test: /\.mjs$/,
         include: /node_modules/,
         type: "javascript/auto",
+      },
+      {
+        test: /\.tsx?$/,
+        use: "ts-loader",
+        exclude: /node_modules/,
       },
       {
         test: /\.(ico|jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2)(\?.*)?$/,
