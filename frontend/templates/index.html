@@ -1,4 +1,11 @@
 {% extends "base.html" %}
+{% load webpack_loader static %}
+
+{% block head %}
+{% stylesheet_pack 'index' %}
+{% endblock %}
+
 {% block body %}
-Hello world
+<div id="root"></div>
+{% javascript_pack 'index' attrs='defer' %}
 {% endblock %}
