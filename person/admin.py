@@ -12,6 +12,44 @@ class EventForm(forms.ModelForm):
         required=False
     )
 
+class PersonNameForm(forms.ModelForm):
+    first_name = forms.CharField(max_length=100)
+    middle_name = forms.CharField(max_length=100, required=False)
+    last_name = forms.CharField(max_length=100)
+    name_type = forms.ChoiceField(choices=PersonName.Type.choices, required=False)
+
+    class Meta:
+        model = PersonName
+        fields = ('first_name', 'middle_name', 'last_name', 'name_type')
+
+    def save(self, commit=True):
+        # Create the Name object first
+        name = Name.objects.create(
+            first_name=self.cleaned_data['first_name'],
+            middle_name=self.cleaned_data['middle_name'],
+            last_name=self.cleaned_data['last_name']
+        )
+        
+        # Then create the PersonName relationship
+        instance = super().save(commit=False)
+        instance.name = name
+        if commit:
+            instance.save()
+        return instance
+
+class PersonNameInline(admin.TabularInline):
+    model = PersonName
+    form = PersonNameForm
+    extra = 1
+    fields = ('first_name', 'middle_name', 'last_name', 'name_type')
+    verbose_name = "Name"
+    verbose_name_plural = "Names"
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        formset.form.base_fields['name_type'].initial = PersonName.Type.BIRTH
+        return formset
+
 class ParentChildRelationshipInline(admin.TabularInline):
     model = ParentChildRelationship
     fk_name = 'child'
@@ -27,10 +65,6 @@ class ChildRelationshipInline(admin.TabularInline):
     fields = ('child',)
     verbose_name = "Child"
     verbose_name_plural = "Children"
-
-class PersonNameInline(admin.TabularInline):
-    model = PersonName
-    extra = 0
 
 class BirthEventInline(admin.TabularInline):
     model = BirthEvent

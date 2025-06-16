@@ -37,10 +37,10 @@ class Person(models.Model):
 
     @property
     def spouses(self):
-        """Get all current and former spouses"""
+        """Get current and former spouses"""
         return Person.objects.filter(
-            models.Q(marriageevents__person=self, marriageevents__ended=False) |
-            models.Q(marriageevents__other_person=self, marriageevents__ended=False)
+            models.Q(marriageevents__person=self) |
+            models.Q(marriageevents__other_person=self)
         ).distinct()
 
     @property
@@ -56,7 +56,7 @@ class Person(models.Model):
             self.save(update_fields=['is_living'])
 
     def __str__(self):
-        birth_to_death = f" ({self.birth.date} - {f'died {self.death.date}' if self.death else 'present'})" if self.birth else ""
+        birth_to_death = f" ({self.birth.date} - {f'{self.death.date}' if self.death else 'present'})" if self.birth else ""
         return f"{self.name}{birth_to_death}"
 
 
@@ -121,7 +121,7 @@ class ParentChildRelationship(models.Model):
 
 # Events
 class Event(models.Model):
-    date = models.DateField(blank=True)
+    date = models.DateField(blank=True, null=True)
     person = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='%(class)ss')
     comment = models.TextField(blank=True)
 
