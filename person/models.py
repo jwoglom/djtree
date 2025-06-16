@@ -3,14 +3,45 @@ from django.core.exceptions import ValidationError
 
 # Create your models here.
 class Person(models.Model):
+    class Gender(models.TextChoices):
+        UNKNOWN = 'U', 'Unknown'
+        MALE = 'M', 'Male'
+        FEMALE = 'F', 'Female'
+
     names = models.ManyToManyField('Name', through='PersonName')
+    parents = models.ManyToManyField('self', through='ParentChildRelationship',
+                                   symmetrical=False,
+                                   related_name='children')
+    gender = models.CharField(max_length=1, choices=Gender, default=Gender.UNKNOWN)
+    is_living = models.BooleanField(default=True)
 
     @property
     def name(self):
         return self.names.first()
-    
+
     def __str__(self):
         return f"Person: {self.name}"
+
+    @property
+    def siblings(self):
+        """Get all siblings (people who share at least one parent)"""
+        parent_ids = self.parent_relationships.values_list('parent_id', flat=True)
+        return Person.objects.filter(
+            parent_relationships__parent_id__in=parent_ids
+        ).exclude(id=self.id).distinct()
+
+    @property
+    def spouses(self):
+        """Get all current and former spouses"""
+        return Person.objects.filter(
+            models.Q(marriageevent__person=self, marriageevent__ended=False) |
+            models.Q(marriageevent__other_person=self, marriageevent__ended=False)
+        ).distinct()
+
+    @property
+    def spouse(self):
+        """Get the current spouse of this person"""
+        return self.spouses.filter(marriageevent__ended=False).first()
 
 # Names
 class Name(models.Model):
@@ -19,7 +50,7 @@ class Name(models.Model):
     last_name = models.CharField(max_length=100)
 
     def __str__(self):
-        return f"{self.first_name} {self.middle_name} {self.last_name}"
+        return f"{self.first_name}{f' {self.middle_name}' if self.middle_name else ''} {self.last_name}"
 
 class PersonName(models.Model):
     person = models.ForeignKey('Person', on_delete=models.CASCADE)
@@ -33,8 +64,43 @@ class PersonName(models.Model):
     def __str__(self):
         return f"{self.name}{f' ({self.name_type})' if self.name_type else ''}"
 
-# Events
+# Relationships
+class ParentChildRelationship(models.Model):
+    parent = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='parent_relationships')
+    child = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='child_relationships')
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['parent', 'child'],
+                name='unique_parent_child'
+            )
+        ]
+
+    def clean(self):
+        # Prevent self-relationships
+        if self.parent == self.child:
+            raise ValidationError("A person cannot be their own parent")
+
+        # Prevent duplicate parent relationships
+        if ParentChildRelationship.objects.filter(
+            parent=self.parent,
+            child=self.child
+        ).exclude(id=self.id).exists():
+            raise ValidationError("This parent-child relationship already exists")
+
+        # Prevent impossible relationships
+        if self.parent in self.child.get_siblings():
+            raise ValidationError("A person cannot be both a parent and a sibling")
+
+        # Prevent marrying your own child
+        if self.parent in self.child.get_spouses():
+            raise ValidationError("A person cannot be both a parent and a spouse")
+
+    def __str__(self):
+        return f"{self.parent} is parent of {self.child}"
+
+# Events
 class Event(models.Model):
     date = models.DateField()
     person = models.ForeignKey('Person', on_delete=models.CASCADE, related_name='%(class)s')
@@ -53,10 +119,23 @@ class CoupleEvent(Event):
     class Meta:
         abstract = True
 
+    def clean(self):
+        # Prevent self-relationships
+        if self.person == self.other_person:
+            raise ValidationError("A person cannot have a relationship with themselves")
+
+        # Prevent marrying your own child
+        if self.other_person in self.person.children.all():
+            raise ValidationError("A person cannot marry their own child")
+
+        # Prevent marrying your own parent
+        if self.other_person in self.person.parents.all():
+            raise ValidationError("A person cannot marry their own parent")
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         super().save(*args, **kwargs)
-        
+
         # Find or create the symmetric event
         symmetric_event, created = self.__class__.objects.get_or_create(
             person=self.other_person,
@@ -67,7 +146,7 @@ class CoupleEvent(Event):
                 'comment': self.comment
             }
         )
-        
+
         # If this is an update (not new) and the symmetric event exists,
         # update its fields to match this one
         if not is_new and not created:
@@ -78,7 +157,7 @@ class CoupleEvent(Event):
 
 class MarriageEvent(CoupleEvent):
     ended = models.BooleanField(default=False)  # Track if this marriage ended in divorce
-    
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -95,16 +174,16 @@ class DivorceEvent(CoupleEvent):
                 name='unique_divorce_per_couple_date'
             )
         ]
-    
+
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        
+
         MarriageEvent.objects.filter(
             person=self.person,
             other_person=self.other_person,
             ended=False
         ).update(ended=True)
-        
+
         MarriageEvent.objects.filter(
             person=self.other_person,
             other_person=self.person,
@@ -113,7 +192,7 @@ class DivorceEvent(CoupleEvent):
 
 class BirthEvent(Event):
     location = models.CharField(max_length=200, blank=True)
-    
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -125,7 +204,7 @@ class BirthEvent(Event):
 class DeathEvent(Event):
     location = models.CharField(max_length=200, blank=True)
     cause = models.CharField(max_length=200, blank=True)
-    
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
