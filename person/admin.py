@@ -16,7 +16,7 @@ class ParentChildRelationshipInline(admin.TabularInline):
     model = ParentChildRelationship
     fk_name = 'child'
     extra = 0
-    fields = ('parent', 'relationship_type', 'start_date', 'end_date', 'comment')
+    fields = ('parent',)
     verbose_name = "Parent"
     verbose_name_plural = "Parents"
 
@@ -24,7 +24,7 @@ class ChildRelationshipInline(admin.TabularInline):
     model = ParentChildRelationship
     fk_name = 'parent'
     extra = 0
-    fields = ('child', 'relationship_type', 'start_date', 'end_date', 'comment')
+    fields = ('child',)
     verbose_name = "Child"
     verbose_name_plural = "Children"
 
