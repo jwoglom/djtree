@@ -48,6 +48,7 @@ export const useFamilyTree = () => {
       let main_id: any;
       let store: any;
       let isInitializing = true;
+      const roots = new Map(); // Track React roots for each card
       
       console.log('Tree ref exists, setting up family-chart');
       try {
@@ -101,8 +102,6 @@ export const useFamilyTree = () => {
         }
         
         const Card = (tree: any, svg: any) => {
-          const roots = new Map(); // Track React roots for each card
-          
           return function (d: any) {
             this.innerHTML = '';
             
@@ -127,6 +126,9 @@ export const useFamilyTree = () => {
             console.warn('Store is undefined, skipping update');
             return;
           }
+          
+          // Clear the roots Map before updating to avoid stale references
+          roots.clear();
           
           tree = store.getTree();
           console.log('Tree from store:', tree);
