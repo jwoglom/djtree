@@ -15,7 +15,10 @@ export const translateData = (data: RawPersonData[]): PersonData[] => {
     const rels: any = {
       marriages: [],
       children: person.children?.map((child: any) => child.id.toString()) || [],
-      siblings: person.siblings?.map((sibling: any) => sibling.id.toString()) || []
+      siblings: person.siblings?.map((sibling: any) => ({
+        id: sibling.id.toString(),
+        gender: sibling.gender
+      })) || []
     };
     
     if (person.parents && person.parents.length > 0) {

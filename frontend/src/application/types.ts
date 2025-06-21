@@ -8,7 +8,10 @@ export interface PersonData {
     children: string[];
     father?: string;
     mother?: string;
-    siblings?: string[];
+    siblings: Array<{
+      id: string;
+      gender: 'M' | 'F' | 'U';
+    }>;
   };
   data: {
     first_name: string;
@@ -49,6 +52,7 @@ export interface RawPersonData {
   }>;
   siblings?: Array<{
     id: number;
+    gender: 'M' | 'F' | 'U';
   }>;
   marriages?: Array<{
     other_person: {

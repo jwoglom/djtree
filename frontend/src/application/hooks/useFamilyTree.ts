@@ -116,10 +116,19 @@ export const useFamilyTree = () => {
             
             const visibleNodeIds = tree.data.map((node: any) => String(node.data.id));
 
+            const onHighlightParent = (parentId: string) => {
+              // Find the parent in the data and make them the main person
+              const parent = data.find(person => person.id === parentId);
+              if (parent) {
+                updateMainId(parentId);
+              }
+            };
+
             const cardElement = React.createElement(FamilyCard, {
               data: d.data,
               onClick: onCardClick,
-              visibleNodeIds: visibleNodeIds
+              visibleNodeIds: visibleNodeIds,
+              onHighlightParent: onHighlightParent
             });
             root.render(cardElement);
           };

@@ -5,9 +5,10 @@ interface FamilyCardProps {
   data: PersonData;
   onClick: (e: React.MouseEvent, data: PersonData) => void;
   visibleNodeIds: string[];
+  onHighlightParent?: (parentId: string) => void;
 }
 
-export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNodeIds }) => {
+export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNodeIds, onHighlightParent }) => {
   const getGenderIcon = (gender: string) => {
     switch (gender) {
       case 'F': return '♀';
@@ -24,6 +25,17 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
     }
   };
 
+  const handleSiblingClick = (e: React.MouseEvent, sibling: { id: string; gender: 'M' | 'F' | 'U' }) => {
+    e.stopPropagation(); // Prevent triggering the card click
+    
+    // Try to highlight father first, then mother
+    if (data.rels.father && onHighlightParent) {
+      onHighlightParent(data.rels.father);
+    } else if (data.rels.mother && onHighlightParent) {
+      onHighlightParent(data.rels.mother);
+    }
+  };
+
   const fullName = `${data.data.first_name} ${data.data.middle_name} ${data.data.last_name}`.trim();
   const dateText = data.data.birth_date 
     ? `${data.data.birth_date}${data.data.death_date ? ` - ${data.data.death_date}` : ''}`
@@ -31,6 +43,10 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
 
   const nonVisibleFather = data.rels.father && !visibleNodeIds.includes(data.rels.father);
   const nonVisibleMother = data.rels.mother && !visibleNodeIds.includes(data.rels.mother);
+  
+  // Check for missing siblings
+  const missingSiblings = data.rels.siblings?.filter(sibling => !visibleNodeIds.includes(sibling.id)) || [];
+  const hasMissingSiblings = missingSiblings.length > 0;
   
   return (
     <div
@@ -84,7 +100,7 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
               backgroundColor: '#ccc',
             }} />
             {nonVisibleFather &&
-              <div style={{
+              <div className="missing-parent-indicator missing-father-indicator" style={{
                 position: 'relative',
                 top: '6px',
                 left: '-20px',
@@ -96,7 +112,7 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
               }} />
             }
             {nonVisibleMother &&
-              <div style={{
+              <div className="missing-parent-indicator missing-mother-indicator" style={{
                 position: 'relative',
                 top: '6px',
                 left: '20px',
@@ -124,7 +140,7 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
               gap: '0px'
             }}>
               <div style={{ width: '8px', height: '2px', backgroundColor: '#ccc' }}></div>
-              <div style={{
+              <div className="missing-marriage-indicator" style={{
                 width: '20px',
                 height: '10px',
                 backgroundColor: getGenderColor(marriage.gender),
@@ -133,6 +149,52 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
               }}></div>
             </div>
         ))}
+
+        {/* Missing siblings indicator */}
+        {hasMissingSiblings && (
+          <div style={{
+            position: 'absolute',
+            top: '-9px',
+            transform: 'translateY(-50%)',
+            right: '-23px',
+            width: '163px',
+            height: '1.5px',
+            backgroundColor: '#fff'
+          }}></div>)}
+        {hasMissingSiblings && 
+          missingSiblings.map((sibling, index) => (
+          <div 
+            key={sibling.id}
+            style={{
+              position: 'absolute',
+              top: '0%',
+              transform: 'translateY(-50%)',
+              right: '-30px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0px',
+              cursor: 'pointer'
+            }}
+            onClick={(e) => handleSiblingClick(e, sibling)}
+            title={`Click to show ${sibling.gender === 'M' ? 'father' : 'mother'} to reveal sibling`}
+          >
+            <div style={{ 
+              width: '1.5px', 
+              height: '8px', 
+              backgroundColor: '#fff' 
+            }}></div>
+            <div className="missing-sibling-indicator" style={{
+              width: '16px',
+              height: '8px',
+              backgroundColor: getGenderColor(sibling.gender),
+              borderRadius: '1px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+              transition: 'all 0.2s ease'
+            }}></div>
+          </div>
+        ))}
+
         <div
           style={{
             width: '60px',
