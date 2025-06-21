@@ -89,7 +89,9 @@ export const useFamilyTree = () => {
         store = f3.createStore({ 
           data, 
           node_separation: 350,
-          level_separation: 120
+          level_separation: 120,
+          show_siblings_of_main: true,
+          
         });
         console.log('Store created:', store);
         

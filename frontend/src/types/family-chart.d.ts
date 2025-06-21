@@ -1,8 +1,20 @@
 declare module 'family-chart' {
   interface StoreOptions {
     data: any;
+    main_id?: any;
     node_separation?: number;
     level_separation?: number;
+    single_parent_empty_card?: boolean;
+    is_horizontal?: boolean;
+    one_level_rels?: boolean;
+    sortChildrenFunction?: (a: any, b: any) => any;
+    sortSpousesFunction?: (a: any, b: any) => any;
+    ancestry_depth?: number;
+    progeny_depth?: number;
+    show_siblings_of_main?: boolean;
+    modifyTreeHierarchy?: any;
+    private_cards_config?: any;
+    duplicate_branch_toggle?: boolean;
   }
 
   interface CardOptions {
