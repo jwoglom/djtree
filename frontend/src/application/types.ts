@@ -5,6 +5,7 @@ export interface PersonData {
     children: string[];
     father?: string;
     mother?: string;
+    siblings?: string[];
   };
   data: {
     first_name: string;

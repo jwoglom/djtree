@@ -1,7 +1,7 @@
 import { PersonData, RawPersonData } from '../types';
 
 export const translateData = (data: RawPersonData[]): PersonData[] => {
-  return data.map((person: RawPersonData) => {
+  const people = data.map((person: RawPersonData) => {
     const name = person.name || person.names?.[0];
     const firstName = name?.first_name || "";
     const middleName = name?.middle_name || "";
@@ -12,7 +12,8 @@ export const translateData = (data: RawPersonData[]): PersonData[] => {
     
     const rels: any = {
       spouses: [],
-      children: person.children?.map((child: any) => child.id.toString()) || []
+      children: person.children?.map((child: any) => child.id.toString()) || [],
+      siblings: [] 
     };
     
     if (person.parents && person.parents.length > 0) {
@@ -43,4 +44,17 @@ export const translateData = (data: RawPersonData[]): PersonData[] => {
       }
     };
   });
+
+  // Add siblings
+  people.forEach(person => {
+    if (person.rels.father || person.rels.mother) {
+      const siblings = people.filter(p => {
+        return p.id !== person.id && 
+               (p.rels.father === person.rels.father && p.rels.mother === person.rels.mother);
+      });
+      person.rels.siblings = siblings.map(s => s.id);
+    }
+  });
+
+  return people;
 }; 

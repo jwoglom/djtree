@@ -54,17 +54,42 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
           position: 'relative',
         }}
       >
-        {((data.rels.father && !visibleNodeIds.includes(data.rels.father)) || (data.rels.mother && !visibleNodeIds.includes(data.rels.mother))) && (
+        {data.rels.father && !visibleNodeIds.includes(data.rels.father) && (
           <div style={{
             position: 'absolute',
-            top: '4px',
-            right: '4px',
-            display: 'flex',
-            gap: '2px',
-          }}>
-            {data.rels.father && !visibleNodeIds.includes(data.rels.father) && <div style={{ width: '10px', height: '10px', backgroundColor: getGenderColor('M'), borderRadius: '2px' }} />}
-            {data.rels.mother && !visibleNodeIds.includes(data.rels.mother) && <div style={{ width: '10px', height: '10px', backgroundColor: getGenderColor('F'), borderRadius: '2px' }} />}
-          </div>
+            top: '-10px',
+            left: '10px',
+            width: '16px',
+            height: '8px',
+            backgroundColor: getGenderColor('M'),
+            borderRadius: '3px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          }} />
+        )}
+        {data.rels.mother && !visibleNodeIds.includes(data.rels.mother) && (
+          <div style={{
+            position: 'absolute',
+            top: '-10px',
+            right: '10px',
+            width: '16px',
+            height: '8px',
+            backgroundColor: getGenderColor('F'),
+            borderRadius: '3px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          }} />
+        )}
+        {data.rels.siblings && data.rels.siblings.some(id => !visibleNodeIds.includes(id)) && (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '-15px',
+            transform: 'translateY(-50%)',
+            width: '8px',
+            height: '16px',
+            backgroundColor: 'rgba(255, 255, 255, 0.5)',
+            borderRadius: '3px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          }} />
         )}
         <div
           style={{
