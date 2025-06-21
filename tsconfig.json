@@ -11,7 +11,11 @@
       "allowSyntheticDefaultImports": true,
       "esModuleInterop": true,
       "lib": ["dom", "dom.iterable", "esnext"],
-      "skipLibCheck": true
+      "skipLibCheck": true,
+      "typeRoots": ["./node_modules/@types", "./frontend/src/types"]
     },
-    "include": ["./frontend/src/application"]
-  }
+    "include": [
+      "./frontend/src/application",
+      "./frontend/src/types/**/*.d.ts"
+    ]
+}

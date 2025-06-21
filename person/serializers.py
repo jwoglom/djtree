@@ -69,6 +69,7 @@ class MiniPersonSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk')
     name = serializers.SerializerMethodField()
     names = NameSerializer(many=True, read_only=True)
+    gender = serializers.CharField(read_only=True)
     url = serializers.HyperlinkedIdentityField(view_name='person-detail', lookup_field='pk')
 
     def get_name(self, obj):
@@ -77,7 +78,7 @@ class MiniPersonSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Person
-        fields = ['id', 'name', 'names', 'url']
+        fields = ['id', 'name', 'names', 'gender', 'url']
 
 class PersonSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk')

@@ -33,7 +33,6 @@ module.exports = {
     splitChunks: {
       chunks: "all",
     },
-
     runtimeChunk: "single",
   },
   plugins: [
@@ -54,7 +53,12 @@ module.exports = {
     alias: {
       "~": Path.resolve(__dirname, "../src"),
     },
-    extensions: [".ts", ".js"],
+    extensions: [".ts", ".js", ".mjs"],
+    mainFields: ["module", "main"],
+    fallback: {
+      "path": false,
+      "fs": false
+    }
   },
   module: {
     rules: [
@@ -72,6 +76,23 @@ module.exports = {
         test: /\.(ico|jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2)(\?.*)?$/,
         type: "asset",
       },
+      {
+        test: /\.js$/,
+        include: /node_modules\/family-chart/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: [
+              ['@babel/preset-env', {
+                modules: false,
+                targets: {
+                  browsers: ['last 2 versions', 'not dead']
+                }
+              }]
+            ]
+          }
+        }
+      }
     ],
   },
 };
