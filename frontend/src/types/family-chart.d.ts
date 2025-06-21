@@ -31,8 +31,9 @@ declare module 'family-chart' {
 
   const f3: {
     createStore: (options: StoreOptions) => Store;
-    createSvg: (element: HTMLElement) => any;
+    createSvg: (element: HTMLElement, options?: { onZoom?: (e: any) => void }) => any;
     view: (tree: any, svg: any, Card: any, props?: any) => void;
+    CalculateTree: (options: { data: any; main_id?: any }) => any;
     elements: {
       Card: (options: CardOptions) => any;
     };

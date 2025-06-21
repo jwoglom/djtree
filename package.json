@@ -28,6 +28,7 @@
     "@babel/plugin-transform-class-properties": "^7.25.9",
     "@babel/preset-env": "^7.26.7",
     "@babel/preset-react": "^7.27.1",
+    "@types/d3": "^7.4.3",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "babel-loader": "^9.2.1",
