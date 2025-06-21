@@ -114,9 +114,12 @@ export const useFamilyTree = () => {
               roots.set(this, root);
             }
             
+            const visibleNodeIds = tree.data.map((node: any) => String(node.data.id));
+
             const cardElement = React.createElement(FamilyCard, {
               data: d.data,
-              onClick: onCardClick
+              onClick: onCardClick,
+              visibleNodeIds: visibleNodeIds
             });
             root.render(cardElement);
           };

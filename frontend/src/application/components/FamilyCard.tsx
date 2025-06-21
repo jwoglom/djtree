@@ -4,9 +4,10 @@ import { PersonData } from '../types';
 interface FamilyCardProps {
   data: PersonData;
   onClick: (e: React.MouseEvent, data: PersonData) => void;
+  visibleNodeIds: string[];
 }
 
-export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick }) => {
+export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNodeIds }) => {
   const getGenderIcon = (gender: string) => {
     switch (gender) {
       case 'F': return '♀';
@@ -49,9 +50,22 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick }) => {
           display: 'flex',
           alignItems: 'center',
           padding: '10px',
-          fontFamily: 'Roboto, sans-serif'
+          fontFamily: 'Roboto, sans-serif',
+          position: 'relative',
         }}
       >
+        {((data.rels.father && !visibleNodeIds.includes(data.rels.father)) || (data.rels.mother && !visibleNodeIds.includes(data.rels.mother))) && (
+          <div style={{
+            position: 'absolute',
+            top: '4px',
+            right: '4px',
+            display: 'flex',
+            gap: '2px',
+          }}>
+            {data.rels.father && !visibleNodeIds.includes(data.rels.father) && <div style={{ width: '10px', height: '10px', backgroundColor: getGenderColor('M'), borderRadius: '2px' }} />}
+            {data.rels.mother && !visibleNodeIds.includes(data.rels.mother) && <div style={{ width: '10px', height: '10px', backgroundColor: getGenderColor('F'), borderRadius: '2px' }} />}
+          </div>
+        )}
         <div
           style={{
             width: '60px',
