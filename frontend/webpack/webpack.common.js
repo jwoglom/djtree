@@ -8,7 +8,7 @@ const getEntryObject = () => {
   const entries = {};
   // for javascript/typescript entry file
   glob
-    .sync(Path.join(__dirname, "../src/application/*.{js,ts}"))
+    .sync(Path.join(__dirname, "../src/application/*.{js,ts,tsx}"))
     .forEach((path) => {
       const name = Path.basename(path);
       const extension = Path.extname(path);
@@ -53,7 +53,7 @@ module.exports = {
     alias: {
       "~": Path.resolve(__dirname, "../src"),
     },
-    extensions: [".ts", ".js", ".mjs"],
+    extensions: [".tsx", ".ts", ".js", ".mjs"],
     mainFields: ["module", "main"],
     fallback: {
       "path": false,

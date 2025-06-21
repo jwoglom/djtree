@@ -1,5 +1,18 @@
 @import "../../../node_modules/family-chart/dist/styles/family-chart.css";
 
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
-  background-color: #f0f0f0;
+  background-color: #333;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+html {
+  background-color: #333;
 }
