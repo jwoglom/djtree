@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models import QuerySet
 from django.core.exceptions import ValidationError
+import uuid
 
 # Create your models here.
 class Person(models.Model):
@@ -31,10 +32,15 @@ class Person(models.Model):
     @property
     def siblings(self):
         """Get all siblings (people who share at least one parent)"""
-        parent_ids = self.parent_relationships.values_list('parent_id', flat=True)
-        return Person.objects.filter(
-            parent_relationships__parent_id__in=parent_ids
+        # Get all parent IDs for this person using the many-to-many relationship
+        parent_ids = self.parents.values_list('id', flat=True)
+        
+        # Find all people who have any of these parents (excluding self)
+        siblings = Person.objects.filter(
+            parents__id__in=parent_ids
         ).exclude(id=self.id).distinct()
+        
+        return siblings
 
     @property
     def spouses(self):
@@ -60,7 +66,6 @@ class Person(models.Model):
             *self.immigrationevents.all(),
             *self.citizenshipevents.all()
         ]
-
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
@@ -129,6 +134,18 @@ class ParentChildRelationship(models.Model):
             # Prevent marrying your own child
             if self.parent in self.child.spouses:
                 raise ValidationError("A person cannot be both a parent and a spouse")
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        
+        # Ensure the many-to-many relationships are consistent
+        if is_new:
+            # Add to many-to-many relationships if they don't exist
+            if self.child not in self.parent.children.all():
+                self.parent.children.add(self.child)
+            if self.parent not in self.child.parents.all():
+                self.child.parents.add(self.parent)
 
     def __str__(self):
         return f"{self.parent} is parent of {self.child}"

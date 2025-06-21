@@ -1,7 +1,10 @@
 export interface PersonData {
   id: string;
   rels: {
-    spouses: string[];
+    marriages: Array<{
+      id: string;
+      gender: 'M' | 'F' | 'U';
+    }>;
     children: string[];
     father?: string;
     mother?: string;
@@ -44,7 +47,26 @@ export interface RawPersonData {
   children?: Array<{
     id: number;
   }>;
-  spouse?: {
+  siblings?: Array<{
     id: number;
-  };
+  }>;
+  marriages?: Array<{
+    other_person: {
+      id: number;
+      name?: {
+        first_name: string;
+        middle_name: string;
+        last_name: string;
+      };
+      names?: Array<{
+        first_name: string;
+        middle_name: string;
+        last_name: string;
+      }>;
+      gender: 'M' | 'F' | 'U';
+      url: string;
+    };
+    date?: string;
+    ended?: boolean;
+  }>;
 } 

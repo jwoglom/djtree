@@ -1,6 +1,8 @@
 import { PersonData, RawPersonData } from '../types';
 
 export const translateData = (data: RawPersonData[]): PersonData[] => {
+  console.log('Raw API data:', data);
+  
   const people = data.map((person: RawPersonData) => {
     const name = person.name || person.names?.[0];
     const firstName = name?.first_name || "";
@@ -11,9 +13,9 @@ export const translateData = (data: RawPersonData[]): PersonData[] => {
     const deathDate = person.death?.date ? new Date(person.death.date).getFullYear().toString() : "";
     
     const rels: any = {
-      spouses: [],
+      marriages: [],
       children: person.children?.map((child: any) => child.id.toString()) || [],
-      siblings: [] 
+      siblings: person.siblings?.map((sibling: any) => sibling.id.toString()) || []
     };
     
     if (person.parents && person.parents.length > 0) {
@@ -26,8 +28,14 @@ export const translateData = (data: RawPersonData[]): PersonData[] => {
       });
     }
     
-    if (person.spouse) {
-      rels.spouses = [person.spouse.id.toString()];
+    if (person.marriages && person.marriages.length > 0) {
+      console.log('Marriages for person', person.id, ':', person.marriages);
+      rels.marriages = person.marriages
+        .filter((marriage: any) => marriage.other_person != null)
+        .map((marriage: any) => ({
+          id: marriage.other_person.id.toString(),
+          gender: marriage.other_person.gender
+        }));
     }
     
     return {
@@ -43,17 +51,6 @@ export const translateData = (data: RawPersonData[]): PersonData[] => {
         gender: person.gender || "U"
       }
     };
-  });
-
-  // Add siblings
-  people.forEach(person => {
-    if (person.rels.father || person.rels.mother) {
-      const siblings = people.filter(p => {
-        return p.id !== person.id && 
-               (p.rels.father === person.rels.father && p.rels.mother === person.rels.mother);
-      });
-      person.rels.siblings = siblings.map(s => s.id);
-    }
   });
 
   return people;

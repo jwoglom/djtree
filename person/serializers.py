@@ -34,8 +34,23 @@ class DeathEventSerializer(EventSerializer):
         model = DeathEvent
         fields = EventSerializer.Meta.fields + ['location', 'cause']
 
+class MiniPersonSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='pk')
+    name = serializers.SerializerMethodField()
+    names = NameSerializer(many=True, read_only=True)
+    gender = serializers.CharField(read_only=True)
+    url = serializers.HyperlinkedIdentityField(view_name='person-detail', lookup_field='pk')
+
+    def get_name(self, obj):
+        name = obj.name
+        return NameSerializer(name).data if name else None
+
+    class Meta:
+        model = Person
+        fields = ['id', 'name', 'names', 'gender', 'url']
+
 class CoupleEventSerializer(EventSerializer):
-    other_person = serializers.PrimaryKeyRelatedField(queryset=Person.objects.all())
+    other_person = MiniPersonSerializer(read_only=True)
     
     class Meta(EventSerializer.Meta):
         abstract = True
@@ -65,33 +80,19 @@ class ParentChildRelationshipSerializer(serializers.ModelSerializer):
         model = ParentChildRelationship
         fields = ['id', 'parent', 'child']
 
-class MiniPersonSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(source='pk')
-    name = serializers.SerializerMethodField()
-    names = NameSerializer(many=True, read_only=True)
-    gender = serializers.CharField(read_only=True)
-    url = serializers.HyperlinkedIdentityField(view_name='person-detail', lookup_field='pk')
-
-    def get_name(self, obj):
-        name = obj.name
-        return NameSerializer(name).data if name else None
-
-    class Meta:
-        model = Person
-        fields = ['id', 'name', 'names', 'gender', 'url']
-
 class PersonSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='pk')
     name = serializers.SerializerMethodField()
     names = NameSerializer(many=True, read_only=True)
     birth = BirthEventSerializer(read_only=True)
     death = DeathEventSerializer(read_only=True)
-    marriages = MarriageEventSerializer(many=True, read_only=True)
-    divorces = DivorceEventSerializer(many=True, read_only=True)
+    marriages = MarriageEventSerializer(many=True, read_only=True, source='marriageevents')
+    divorces = DivorceEventSerializer(many=True, read_only=True, source='divorceevents')
     immigrations = ImmigrationEventSerializer(many=True, read_only=True)
     citizenships = CitizenshipEventSerializer(many=True, read_only=True)
     parents = MiniPersonSerializer(many=True, read_only=True)
     children = MiniPersonSerializer(many=True, read_only=True)
+    siblings = MiniPersonSerializer(many=True, read_only=True)
 
     def get_name(self, obj):
         name = obj.name
@@ -104,7 +105,7 @@ class PersonSerializer(serializers.ModelSerializer):
             'birth', 'death',
             'marriages', 'divorces',
             'immigrations', 'citizenships',
-            'parents', 'children'
+            'parents', 'children', 'siblings'
         ]
 
 class PersonViewSet(viewsets.ModelViewSet):
