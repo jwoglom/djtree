@@ -43,7 +43,9 @@ export const useFamilyTree = () => {
     }
 
     console.log('Setting up tree with data and DOM element');
-    const setupTree = async () => {
+    let cleanup: (() => void) | undefined;
+    
+    const setupTree = () => {
       let tree: any;
       let main_id: any;
       let store: any;
@@ -86,8 +88,8 @@ export const useFamilyTree = () => {
         console.log('Creating store...');
         store = f3.createStore({ 
           data, 
-          node_separation: 320,
-          level_separation: 100
+          node_separation: 350,
+          level_separation: 120
         });
         console.log('Store created:', store);
         
@@ -140,7 +142,7 @@ export const useFamilyTree = () => {
           props = Object.assign({}, props || {}, { 
             cardHtml: cardHtml.node(),
             card_dim: { w: 280, h: 80, text_x: 75, text_y: 15, img_w: 60, img_h: 60, img_x: 5, img_y: 5 },
-            transition_time: 750
+            transition_time: 500
           });
           console.log('Calling f3.view with props:', props);
           f3.view(tree, svg, Card(tree, svg), props || {});
@@ -157,6 +159,17 @@ export const useFamilyTree = () => {
         const onCardClick = (e: any, d: PersonData) => {
           updateMainId(d.id);
         };
+        
+        // Handle window resize
+        const handleResize = () => {
+          if (store && tree) {
+            console.log('Window resized, updating tree');
+            store.updateTree({ initial: false });
+          }
+        };
+        
+        // Add resize listener
+        window.addEventListener('resize', handleResize);
         
         if (main_id) {
           store.updateMainId(main_id);
@@ -176,12 +189,24 @@ export const useFamilyTree = () => {
         isInitializing = false;
         isTreeSetup.current = true;
         console.log('Tree setup complete');
+        
+        // Return cleanup function
+        cleanup = () => {
+          window.removeEventListener('resize', handleResize);
+        };
       } catch (error) {
         console.error('Error setting up family tree:', error);
       }
     };
 
     setupTree();
+    
+    // Return cleanup function
+    return () => {
+      if (cleanup) {
+        cleanup();
+      }
+    };
   }, [isLoading, data]);
 
   return { treeRef, isLoading };
