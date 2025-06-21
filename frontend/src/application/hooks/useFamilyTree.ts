@@ -12,6 +12,7 @@ export const useFamilyTree = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<PersonData[]>([]);
+  const isTreeSetup = useRef(false);
 
   console.log('useFamilyTree hook called');
 
@@ -37,7 +38,7 @@ export const useFamilyTree = () => {
 
   // Set up tree when data is ready and DOM element exists
   useEffect(() => {
-    if (isLoading || !data.length || !treeRef.current) {
+    if (isLoading || !data.length || !treeRef.current || isTreeSetup.current) {
       return;
     }
 
@@ -50,6 +51,12 @@ export const useFamilyTree = () => {
       
       console.log('Tree ref exists, setting up family-chart');
       try {
+        // Clean up any existing containers
+        const existingHtmlSvg = treeRef.current!.querySelector('#htmlSvg');
+        if (existingHtmlSvg) {
+          existingHtmlSvg.remove();
+        }
+        
         const onZoom = (e: any) => {
           const t = e.transform;
           const view_el = d3.select(svg).select('.view');
@@ -130,7 +137,8 @@ export const useFamilyTree = () => {
           
           props = Object.assign({}, props || {}, { 
             cardHtml: cardHtml.node(),
-            card_dim: { w: 280, h: 80, text_x: 75, text_y: 15, img_w: 60, img_h: 60, img_x: 5, img_y: 5 }
+            card_dim: { w: 280, h: 80, text_x: 75, text_y: 15, img_w: 60, img_h: 60, img_x: 5, img_y: 5 },
+            transition_time: 750
           });
           console.log('Calling f3.view with props:', props);
           f3.view(tree, svg, Card(tree, svg), props || {});
@@ -164,6 +172,7 @@ export const useFamilyTree = () => {
         });
         
         isInitializing = false;
+        isTreeSetup.current = true;
         console.log('Tree setup complete');
       } catch (error) {
         console.error('Error setting up family tree:', error);
@@ -171,7 +180,7 @@ export const useFamilyTree = () => {
     };
 
     setupTree();
-  }, [isLoading, data, searchParams, setSearchParams]);
+  }, [isLoading, data]);
 
   return { treeRef, isLoading };
 }; 
