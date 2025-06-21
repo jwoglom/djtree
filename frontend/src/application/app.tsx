@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import f3 from "family-chart";
 import "../../../node_modules/family-chart/dist/styles/family-chart.css";
 import * as d3 from "d3";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter, Routes, Route, useSearchParams, useNavigate } from "react-router-dom";
 
 const translateData = (data: any) => {
   return data.map((person: any) => {
@@ -55,6 +57,8 @@ const translateData = (data: any) => {
 
 const Tree = () => {
   const treeRef = useRef<HTMLDivElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const setupTree = async () => {
@@ -102,75 +106,103 @@ const Tree = () => {
         
         // Set initial main_id to the first person
         if (data && data.length > 0) {
-          main_id = data[0].id;
-          console.log('Setting initial main_id:', main_id);
+          // Check if there's a person_id in URL params, otherwise use first person
+          const urlPersonId = searchParams.get('person_id');
+          if (urlPersonId) {
+            main_id = urlPersonId;
+            console.log('Setting main_id from URL:', main_id);
+          } else {
+            main_id = data[0].id;
+            console.log('Setting initial main_id:', main_id);
+            // Update URL with the initial person
+            setSearchParams({ person_id: main_id });
+          }
         }
         
         const Card = (tree: any, svg: any) => {
-          const card_dim = { w: 280, h: 80, text_x: 75, text_y: 15, img_w: 60, img_h: 60, img_x: 5, img_y: 5 };
-          
           return function (d: any) {
             this.innerHTML = '';
             
-            const div = d3.select(this).append('div')
-              .style('transform', `translate(${-card_dim.w / 2}px, ${-card_dim.h / 2}px)`)
-              .style('pointer-events', 'auto')
-              .style('z-index', '1');
+            // Create React element using JSX
+            const cardElement = (
+              <div
+                style={{
+                  transform: `translate(${-140}px, ${-40}px)`,
+                  pointerEvents: 'auto',
+                  zIndex: 1
+                }}
+                onClick={(e: any) => onCardClick(e, d)}
+              >
+                <div
+                  style={{
+                    width: '280px',
+                    height: '80px',
+                    backgroundColor: d.data.data.gender === 'F' ? '#c48a92' : d.data.data.gender === 'M' ? '#789fac' : '#d3d3d3',
+                    color: '#fff',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '10px',
+                    fontFamily: 'Roboto, sans-serif'
+                  }}
+                >
+                  {/* Avatar/icon area */}
+                  <div
+                    style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '50%',
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: '15px',
+                      fontSize: '24px'
+                    }}
+                  >
+                    {d.data.data.gender === 'F' ? '♀' : d.data.data.gender === 'M' ? '♂' : '?'}
+                  </div>
+                  
+                  {/* Text content area */}
+                  <div
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    {/* Name */}
+                    <div
+                      style={{
+                        fontWeight: 'bold',
+                        fontSize: '16px',
+                        marginBottom: '4px'
+                      }}
+                    >
+                      {`${d.data.data.first_name} ${d.data.data.middle_name} ${d.data.data.last_name}`.trim()}
+                    </div>
+                    
+                    {/* Birth/death dates */}
+                    {d.data.data.birth_date && (
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          opacity: 0.8
+                        }}
+                      >
+                        {`${d.data.data.birth_date}${d.data.data.death_date ? ` - ${d.data.data.death_date}` : ''}`}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
             
-            const div_inner = div.append('div')
-              .attr('style', `
-                width: ${card_dim.w}px; 
-                height: ${card_dim.h}px; 
-                background-color: ${d.data.data.gender === 'F' ? '#c48a92' : d.data.data.gender === 'M' ? '#789fac' : '#d3d3d3'}; 
-                color: #fff; 
-                border-radius: 8px; 
-                cursor: pointer;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                display: flex;
-                align-items: center;
-                padding: 10px;
-                font-family: 'Roboto', sans-serif;
-              `)
-              .on('click', (e: any) => onCardClick(e, d));
-            
-            // Avatar/icon area
-            const avatarDiv = div_inner.append('div')
-              .attr('style', `
-                width: ${card_dim.img_w}px; 
-                height: ${card_dim.img_h}px; 
-                border-radius: 50%; 
-                background-color: rgba(255,255,255,0.2); 
-                display: flex; 
-                align-items: center; 
-                justify-content: center; 
-                margin-right: 15px;
-                font-size: 24px;
-              `);
-            
-            // Gender icon
-            avatarDiv.append('span')
-              .text(d.data.data.gender === 'F' ? '♀' : d.data.data.gender === 'M' ? '♂' : '?')
-              .style('color', '#fff');
-            
-            // Text content area
-            const textDiv = div_inner.append('div')
-              .attr('style', 'flex: 1; display: flex; flex-direction: column; justify-content: center;');
-            
-            // Name
-            textDiv.append('div')
-              .attr('style', 'font-weight: bold; font-size: 16px; margin-bottom: 4px;')
-              .text(`${d.data.data.first_name} ${d.data.data.middle_name} ${d.data.data.last_name}`.trim());
-            
-            // Birth/death dates
-            const dateText = d.data.data.birth_date 
-              ? `${d.data.data.birth_date}${d.data.data.death_date ? ` - ${d.data.data.death_date}` : ''}`
-              : '';
-            
-            if (dateText) {
-              textDiv.append('div')
-                .attr('style', 'font-size: 12px; opacity: 0.8;')
-                .text(dateText);
-            }
+            // Render React element to this DOM node
+            createRoot(this).render(cardElement);
           };
         };
         
@@ -200,6 +232,9 @@ const Tree = () => {
           main_id = _main_id;
           store.updateMainId(main_id); // Update the store's main_id
           store.updateTree({ initial: false }); // Trigger tree update
+          
+          // Update URL parameter
+          setSearchParams({ person_id: _main_id });
         };
         
         const onCardClick = (e: any, d: any) => {
@@ -259,9 +294,15 @@ const Tree = () => {
 
 const App: React.FC = () => {
   return (
-    <div style={{width: '100%', height: '100vh'}}>
-      <Tree />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={
+          <div style={{width: '100%', height: '100vh'}}>
+            <Tree />
+          </div>
+        } />
+      </Routes>
+    </BrowserRouter>
   );
 };
 
