@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'webpack_boilerplate',
     'rest_framework',
     'person',
+    'django_file_form',
 ]
 
 MIDDLEWARE = [
@@ -57,7 +58,7 @@ ROOT_URLCONF = 'djtree.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': ['frontend/templates'],
+        'DIRS': ['frontend/templates', 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -126,9 +127,15 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 STATICFILES_DIRS = [
     BASE_DIR / "frontend/build",
 ]
+
+# Media files (user uploaded content)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 WEBPACK_LOADER = {
     'MANIFEST_FILE': BASE_DIR / "frontend/build/manifest.json",

@@ -4,16 +4,85 @@ from django.contrib.admin import SimpleListFilter
 from .models import (
     Person, Name, PersonName,
     BirthEvent, DeathEvent, MarriageEvent, DivorceEvent,
-    ImmigrationEvent, CitizenshipEvent, ParentChildRelationship
+    ImmigrationEvent, CitizenshipEvent, ParentChildRelationship, PersonAttachment
 )
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+import os
+from django.forms import BaseInlineFormSet
 
 class EventForm(forms.ModelForm):
     comment = forms.CharField(
         widget=forms.Textarea(attrs={'rows': 2, 'cols': 40}),
         required=False
     )
+
+class MultipleFileInput(forms.ClearableFileInput):
+    def __init__(self, attrs=None):
+        default_attrs = {
+            'multiple': 'multiple',
+            'class': 'vLargeTextField',
+            'style': 'min-height: 120px; border: 2px dashed #007cba; padding: 20px; text-align: center; background-color: #f9f9f9; cursor: pointer;',
+        }
+        if attrs:
+            default_attrs.update(attrs)
+        # Call the parent __init__ without the multiple validation
+        super(forms.FileInput, self).__init__(default_attrs)
+    
+    def value_from_datadict(self, data, files, name):
+        if hasattr(files, 'getlist'):
+            return files.getlist(name)
+        return files.get(name)
+
+class PersonAttachmentFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        # Remove any validation errors from the files field
+        for form in self.forms:
+            if 'files' in form.errors:
+                del form.errors['files']
+
+class PersonAttachmentForm(forms.ModelForm):
+    files = forms.FileField(
+        widget=MultipleFileInput(),
+        required=False,
+        help_text="Drag and drop multiple files here or click to select files"
+    )
+
+    class Meta:
+        model = PersonAttachment
+        fields = ['description', 'file_type']
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        print(f"DEBUG: Form clean called, files: {self.files}")
+        if self.files:
+            print(f"DEBUG: Available files: {list(self.files.keys())}")
+        return cleaned_data
+
+class PersonAttachmentInline(admin.TabularInline):
+    model = PersonAttachment
+    form = PersonAttachmentForm
+    formset = PersonAttachmentFormSet
+    extra = 0  # Don't show empty forms in the table
+    max_num = 10  # Allow up to 10 attachments
+    fields = ('file_link', 'original_filename', 'description', 'file_type', 'uploaded_at')
+    readonly_fields = ('file_link', 'original_filename', 'uploaded_at')
+    verbose_name = "Attachment"
+    verbose_name_plural = "Attachments"
+    
+    def file_link(self, obj):
+        if obj.file:
+            return format_html('<a href="{}" target="_blank">{}</a>', obj.file.url, obj.original_filename or obj.file.name)
+        return "No file"
+    file_link.short_description = "File"
+    
+    def get_extra(self, request, obj=None, **kwargs):
+        """Don't show extra forms in the table"""
+        return 0
 
 class PersonNameForm(forms.ModelForm):
     first_name = forms.CharField(max_length=100)
@@ -148,6 +217,7 @@ class PersonAdmin(admin.ModelAdmin):
         DivorceEventInline,
         ImmigrationEventInline,
         CitizenshipEventInline,
+        # PersonAttachmentInline,  # Hidden - using custom template instead
     ]
     list_display = ('get_first_name', 'get_middle_name', 'get_last_name', 'gender', 'is_living', 'get_birth_date', 'get_death_date')
     list_display_links = ('get_first_name', 'get_middle_name', 'get_last_name')
@@ -180,6 +250,73 @@ class PersonAdmin(admin.ModelAdmin):
     get_death_date.short_description = "Death Date"
     get_death_date.admin_order_field = 'deathevents__date'
 
+    def save_formset(self, request, form, formset, change):
+        print(f"DEBUG: PersonAdmin save_formset called for {formset.model}")
+        if formset.model == PersonAttachment:
+            print(f"DEBUG: Processing PersonAttachment formset")
+            print(f"DEBUG: request.FILES: {request.FILES}")
+            print(f"DEBUG: formset.forms: {len(formset.forms)} forms")
+            
+            # Handle files from the custom upload section
+            new_files = request.FILES.getlist('new_attachments_files') if request.FILES else []
+            new_description = request.POST.get('new_attachments_description', '')
+            new_file_type = request.POST.get('new_attachments_file_type', '')
+            
+            if new_files:
+                print(f"DEBUG: Found {len(new_files)} new files from custom upload")
+                for uploaded_file in new_files:
+                    print(f"DEBUG: Creating attachment for {uploaded_file.name}")
+                    attachment = PersonAttachment(
+                        person=form.instance,
+                        file=uploaded_file,
+                        original_filename=uploaded_file.name,
+                        description=new_description,
+                        file_type=new_file_type
+                    )
+                    attachment.save()
+                    print(f"DEBUG: Saved attachment {attachment.id}")
+            
+            # Handle files from the inline formsets (existing functionality)
+            for form_instance in formset.forms:
+                print(f"DEBUG: Form instance: {form_instance}")
+                print(f"DEBUG: Form is_valid: {form_instance.is_valid()}")
+                print(f"DEBUG: Form has_changed: {form_instance.has_changed()}")
+                print(f"DEBUG: Form files object: {form_instance.files}")
+                if form_instance.files:
+                    print(f"DEBUG: Form files: {list(form_instance.files.keys())}")
+                    # Look for any field that ends with '-files' to handle multiple forms
+                    files_field = None
+                    for key in form_instance.files.keys():
+                        if key.endswith('-files'):
+                            files_field = key
+                            break
+                    
+                    if files_field:
+                        files = form_instance.files.getlist(files_field)
+                        print(f"DEBUG: Found {len(files)} files in {files_field}")
+                        for f in files:
+                            print(f"DEBUG: File: {f.name}")
+                        
+                        # Create attachments for each file
+                        print(f"DEBUG: About to create {len(files)} attachments")
+                        for uploaded_file in files:
+                            print(f"DEBUG: Creating attachment for {uploaded_file.name}")
+                            attachment = PersonAttachment(
+                                person=form.instance,
+                                file=uploaded_file,
+                                original_filename=uploaded_file.name,
+                                description=form_instance.cleaned_data.get('description', ''),
+                                file_type=form_instance.cleaned_data.get('file_type', '')
+                            )
+                            attachment.save()
+                            print(f"DEBUG: Saved attachment {attachment.id}")
+                    else:
+                        print(f"DEBUG: No files field found in form_instance.files")
+                else:
+                    print(f"DEBUG: Form has no files object")
+        
+        super().save_formset(request, form, formset, change)
+
 class NameAdmin(admin.ModelAdmin):
     def get_model_perms(self, request):
         """
@@ -191,4 +328,14 @@ class NameAdmin(admin.ModelAdmin):
 # Register models
 admin.site.register(Person, PersonAdmin)
 admin.site.register(Name, NameAdmin)
+
+class HiddenPersonAttachmentAdmin(admin.ModelAdmin):
+    def get_model_perms(self, request):
+        """
+        Return empty perms dict to hide the model from admin
+        """
+        return {}
+
+# Register PersonAttachment with hidden admin for URL generation
+admin.site.register(PersonAttachment, HiddenPersonAttachmentAdmin)
 
