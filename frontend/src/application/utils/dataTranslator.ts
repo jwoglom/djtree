@@ -39,6 +39,7 @@ export const translateData = (data: RawPersonData[]): PersonData[] => {
           id: marriage.other_person.id.toString(),
           gender: marriage.other_person.gender
         }));
+      console.log('Processed marriages for person', person.id, ':', rels.marriages);
     }
     
     return {

@@ -11,3 +11,7 @@ django-file-form = "*"
 
 [dev-packages]
 ptpython = "*"
+
+[scripts]
+backend = "python manage.py runserver"
+frontend = "npm run watch"

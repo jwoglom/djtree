@@ -9,6 +9,7 @@ interface FamilyCardProps {
 }
 
 export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNodeIds, onHighlightParent }) => {
+
   const getGenderIcon = (gender: string) => {
     switch (gender) {
       case 'F': return '♀';
@@ -74,7 +75,7 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
         }}
       >
         { (nonVisibleFather || nonVisibleMother) &&
-          <div style={{
+          <div className="missing-parent-container" style={{
             position: 'absolute',
             top: '-20px',
             left: '80%',
@@ -82,7 +83,7 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
             width: '22px',
             height: '20px',
           }}>
-            <div style={{ // Horizontal T-bar
+            <div className="missing-parent-horizontal-t-bar" style={{ // Horizontal T-bar
               position: 'absolute',
               bottom: '8px',
               left: 0,
@@ -90,39 +91,44 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
               height: '2px',
               backgroundColor: '#ccc',
             }} />
-            <div style={{ // Vertical T-stem
+            <div className="missing-parent-vertical-t-stem" style={{ // Vertical T-stem
               position: 'absolute',
               bottom: 0,
               left: '50%',
               transform: 'translateX(-50%)',
               width: '2px',
               height: '8px',
+              marginLeft: '-1px',
               backgroundColor: '#ccc',
             }} />
-            {nonVisibleFather &&
-              <div className="missing-parent-indicator missing-father-indicator" style={{
-                position: 'relative',
-                top: '6px',
-                left: '-20px',
-                width: '20px',
-                height: '10px',
-                backgroundColor: getGenderColor('M'),
-                borderRadius: '2px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-              }} />
-            }
-            {nonVisibleMother &&
-              <div className="missing-parent-indicator missing-mother-indicator" style={{
-                position: 'relative',
-                top: '6px',
-                left: '20px',
-                width: '20px',
-                height: '10px',
-                backgroundColor: getGenderColor('F'),
-                borderRadius: '2px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-              }} />
-            }
+            <div style={{position: 'relative', height: '0px'}}>
+              {nonVisibleFather &&
+                <div className="missing-parent-indicator missing-father-indicator" style={{
+                  position: 'relative',
+                  top: '6px',
+                  left: '-20px',
+                  width: '20px',
+                  height: '10px',
+                  backgroundColor: getGenderColor('M'),
+                  borderRadius: '2px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                }} />
+              }
+            </div>
+            <div style={{position: 'relative', height: '0px'}}>
+              {nonVisibleMother &&
+                <div className="missing-parent-indicator missing-mother-indicator" style={{
+                    position: 'relative',
+                    top: '6px',
+                    left: '20px',
+                    width: '20px',
+                    height: '10px',
+                    backgroundColor: getGenderColor('F'),
+                    borderRadius: '2px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                  }} />
+                }
+            </div>
           </div>
         }
 
@@ -138,6 +144,23 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
               alignItems: 'center',
               flexDirection: marriage.gender === 'M' ? 'row-reverse' : 'row',
               gap: '0px'
+            }} onClick={(e) => {
+              e.stopPropagation();
+              // Create a minimal PersonData object for the spouse to trigger navigation
+              const spousePersonData: PersonData = {
+                id: marriage.id,
+                rels: { marriages: [], children: [], siblings: [] },
+                data: {
+                  first_name: '',
+                  middle_name: '',
+                  last_name: '',
+                  birth_date: '',
+                  death_date: '',
+                  avatar: '',
+                  gender: marriage.gender
+                }
+              };
+              onClick(e, spousePersonData);
             }}>
               <div style={{ width: '8px', height: '2px', backgroundColor: '#ccc' }}></div>
               <div className="missing-marriage-indicator" style={{

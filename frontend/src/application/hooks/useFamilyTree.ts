@@ -86,12 +86,25 @@ export const useFamilyTree = () => {
           .style('pointer-events', 'auto');
         
         console.log('Creating store...');
+        console.log('Data being passed to store:', JSON.stringify(data.slice(0, 3), null, 2)); // Log first 3 people
+        
+        // Custom function to include spouses in the tree hierarchy
+        const modifyTreeHierarchy = (node: any, isMainNode: boolean) => {
+          console.log('modifyTreeHierarchy Node:', node, 'isMainNode:', isMainNode);
+        };
+        
         store = f3.createStore({ 
           data, 
           node_separation: 350,
           level_separation: 120,
           show_siblings_of_main: true,
-          
+          ancestry_depth: 10,
+          progeny_depth: 10,
+          single_parent_empty_card: true,
+          is_horizontal: false,
+          modifyTreeHierarchy: modifyTreeHierarchy,
+          sortChildrenFunction: (a: any, b: any) => a.birth_date - b.birth_date,
+          sortSpousesFunction: (a: any, b: any) => a.birth_date - b.birth_date,
         });
         console.log('Store created:', store);
         
@@ -117,6 +130,7 @@ export const useFamilyTree = () => {
             }
             
             const visibleNodeIds = tree.data.map((node: any) => String(node.data.id));
+            console.log('Visible node IDs in tree:', visibleNodeIds);
 
             const onHighlightParent = (parentId: string) => {
               // Find the parent in the data and make them the main person
@@ -191,6 +205,7 @@ export const useFamilyTree = () => {
         store.updateTree({ initial: true });
         tree = store.getTree();
         console.log('Initial tree:', tree);
+        console.log('Tree data nodes:', tree?.data);
         updateTree({ initial: true });
         
         store.setOnUpdate((props: any) => {
