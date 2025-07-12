@@ -76,12 +76,24 @@ class GEDCOMParser:
                 if tag not in self.current_record['data']:
                     self.current_record['data'][tag] = []
                 self.current_record['data'][tag].append(value)
-            elif tag in ['BIRT', 'DEAT', 'MARR']:
+            elif tag in ['BIRT', 'DEAT', 'MARR', 'DIV', 'EMIG', 'IMMI', 'NATU']:
                 self.current_record['data'][tag] = {}
             else:
                 self.current_record['data'][tag] = value
         elif self.current_record and level == 2:
             # Handle nested data like BIRT DATE, BIRT PLAC, etc.
+            # Find the most recent level 1 tag that was a dict
+            parent_tag = None
+            for tag_name in list(self.current_record['data'].keys())[::-1]:
+                if isinstance(self.current_record['data'][tag_name], dict):
+                    parent_tag = tag_name
+                    break
+            
+            if parent_tag:
+                if tag not in self.current_record['data'][parent_tag]:
+                    self.current_record['data'][parent_tag][tag] = value
+        elif self.current_record and level == 3:
+            # Handle level 3 tags like PLAC_TO, PLAC_FROM
             # Find the most recent level 1 tag that was a dict
             parent_tag = None
             for tag_name in list(self.current_record['data'].keys())[::-1]:
@@ -341,7 +353,22 @@ class GEDCOMImporter:
             )
         # Import events
         self._import_events(person, data)
+        # Import gender
+        self._import_gender(person, data)
         return person
+    
+    def _import_gender(self, person: Person, data: Dict):
+        """Import gender from GEDCOM SEX field"""
+        sex = data.get('SEX', '')
+        if sex and not self.pretend:
+            if sex == 'M':
+                person.gender = Person.Gender.MALE
+            elif sex == 'F':
+                person.gender = Person.Gender.FEMALE
+            else:
+                person.gender = Person.Gender.UNKNOWN
+            person.save(update_fields=['gender'])
+    
     def _import_events(self, person: Person, data: Dict):
         """Import events for a person"""
         # Birth event
@@ -378,6 +405,63 @@ class GEDCOMImporter:
                     }
                 )
                 self.stats['events_created'] += 1
+        # Immigration event
+        if 'IMMI' in data:
+            immi_data = data['IMMI']
+            if not isinstance(immi_data, dict):
+                immi_data = {}
+            immi_date = PersonMatcher._parse_date(immi_data.get('DATE', ''))
+            immi_location = immi_data.get('PLAC', '')
+            from_place = immi_data.get('PLAC_FROM', '')
+            to_place = immi_data.get('PLAC_TO', '')
+            if not self.pretend and immi_date:
+                # For IMMI, the PLAC is the destination, PLAC_FROM is the origin
+                ImmigrationEvent.objects.get_or_create(
+                    person=person,
+                    date=immi_date,
+                    defaults={
+                        'from_country': from_place,
+                        'to_country': immi_location,  # Use PLAC as destination
+                        'location': immi_location
+                    }
+                )
+                self.stats['events_created'] += 1
+        # Emigration event (also immigration-related)
+        if 'EMIG' in data:
+            emig_data = data['EMIG']
+            if not isinstance(emig_data, dict):
+                emig_data = {}
+            emig_date = PersonMatcher._parse_date(emig_data.get('DATE', ''))
+            emig_location = emig_data.get('PLAC', '')
+            to_place = emig_data.get('PLAC_TO', '')
+            if not self.pretend and emig_date:
+                ImmigrationEvent.objects.get_or_create(
+                    person=person,
+                    date=emig_date,
+                    defaults={
+                        'from_country': emig_location,
+                        'to_country': to_place,
+                        'location': emig_location
+                    }
+                )
+                self.stats['events_created'] += 1
+        # Citizenship event
+        if 'NATU' in data:
+            natu_data = data['NATU']
+            if not isinstance(natu_data, dict):
+                natu_data = {}
+            natu_date = PersonMatcher._parse_date(natu_data.get('DATE', ''))
+            natu_location = natu_data.get('PLAC', '')
+            if not self.pretend and natu_date:
+                CitizenshipEvent.objects.get_or_create(
+                    person=person,
+                    date=natu_date,
+                    defaults={
+                        'country': natu_location,
+                        'location': natu_location
+                    }
+                )
+                self.stats['events_created'] += 1
     def _import_family(self, family: Dict, person_map: Dict):
         """Import a family and its relationships"""
         data = family['data']
@@ -406,6 +490,26 @@ class GEDCOMImporter:
                         other_person=wife,
                         date=marriage_date,
                         location=marriage_location
+                    )
+                    self.stats['events_created'] += 1
+            # Create divorce event if present
+            divorce_data = data.get('DIV', {})
+            if not isinstance(divorce_data, dict):
+                divorce_data = {}
+            divorce_date = PersonMatcher._parse_date(divorce_data.get('DATE', ''))
+            divorce_location = divorce_data.get('PLAC', '')
+            if not self.pretend and divorce_date:
+                # Only create one divorce event per couple per date
+                if not DivorceEvent.objects.filter(
+                    person=husband, other_person=wife, date=divorce_date
+                ).exists() and not DivorceEvent.objects.filter(
+                    person=wife, other_person=husband, date=divorce_date
+                ).exists():
+                    DivorceEvent.objects.create(
+                        person=husband,
+                        other_person=wife,
+                        date=divorce_date,
+                        location=divorce_location
                     )
                     self.stats['events_created'] += 1
             # Create parent-child relationships
