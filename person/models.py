@@ -157,6 +157,7 @@ class PersonName(models.Model):
         BIRTH = "born as"
         MARRIAGE = "married as"
         IMMIGRATION = "immigrated as"
+        OTHER = "other"
     name_type = models.CharField(max_length=100, choices=Type, default=Type.BIRTH, blank=True)
 
     def __str__(self):
