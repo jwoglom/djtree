@@ -5,7 +5,7 @@ import * as d3 from 'd3';
 import { createRoot } from 'react-dom/client';
 import { translateData } from '../utils/dataTranslator';
 import { PersonData } from '../types';
-import { FamilyCard } from '../components/FamilyCard';
+import { FamilyCard, HEIGHT_PX, WIDTH_PX } from '../components/FamilyCard';
 
 export const useFamilyTree = () => {
   const treeRef = useRef<HTMLDivElement>(null);
@@ -95,8 +95,8 @@ export const useFamilyTree = () => {
         
         store = f3.createStore({ 
           data, 
-          node_separation: 350,
-          level_separation: 120,
+          node_separation: WIDTH_PX * 1.25,
+          level_separation: HEIGHT_PX * 1.5,
           show_siblings_of_main: true,
           ancestry_depth: 10,
           progeny_depth: 10,

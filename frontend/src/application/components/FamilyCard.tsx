@@ -8,6 +8,9 @@ interface FamilyCardProps {
   onHighlightParent?: (parentId: string) => void;
 }
 
+export const WIDTH_PX = 200;
+export const HEIGHT_PX = 80;
+
 export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNodeIds, onHighlightParent }) => {
 
   const getGenderIcon = (gender: string) => {
@@ -67,11 +70,14 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
   // Check for missing siblings
   const missingSiblings = data.rels.siblings?.filter(sibling => !visibleNodeIds.includes(sibling.id)) || [];
   const hasMissingSiblings = missingSiblings.length > 0;
+
+  const widthPx = WIDTH_PX;
+  const heightPx = HEIGHT_PX;
   
   return (
     <div
       style={{
-        transform: `translate(${-140}px, ${-40}px)`,
+        transform: `translate(${-widthPx/2}px, ${-heightPx/2}px)`,
         pointerEvents: 'auto',
         zIndex: 1
       }}
@@ -79,8 +85,8 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
     >
       <div
         style={{
-          width: '280px',
-          height: '80px',
+          width: `${widthPx}px`,
+          height: `${heightPx}px`,
           backgroundColor: getGenderColor(data.data.gender),
           color: '#fff',
           borderRadius: '8px',
@@ -158,7 +164,7 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
               position: 'absolute',
               top: '50%',
               transform: 'translateY(-50%)',
-              ...(marriage.gender === 'F' ? { left: '280px' } : { right: '280px' }),
+              ...(marriage.gender === 'F' ? { left: `${widthPx}px` } : { right: `${widthPx}px` }),
               display: 'flex',
               alignItems: 'center',
               flexDirection: marriage.gender === 'M' ? 'row-reverse' : 'row',
@@ -229,7 +235,7 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginRight: '15px',
+            marginRight: '5px',
             fontSize: '24px'
           }}
         >
