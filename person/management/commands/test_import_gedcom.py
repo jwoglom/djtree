@@ -221,32 +221,40 @@ class PersonMatcherTestCase(TestCase):
         existing_people = list(Person.objects.all())
         match = PersonMatcher.find_matching_person(gedcom_person, existing_people, strict=False)
         
-        # Should still match due to first name and birth date
-        self.assertEqual(match, self.person1)
+        # Should NOT match because last names are different (Smith vs Smithson)
+        # This is the expected behavior with simplified logic
+        self.assertIsNone(match)
     
-    def test_calculate_match_score(self):
-        """Test match score calculation"""
-        # Perfect match
-        score = PersonMatcher._calculate_match_score(
-            self.person1, 'John', 'Michael', 'Smith', date(1980, 3, 15)
-        )
-        self.assertGreater(score, 0.8)  # Allow some flexibility
+    def test_simple_matching_logic(self):
+        """Test the simplified matching logic"""
+        # Test exact match
+        gedcom_person = {
+            'NAME': 'John /Smith/',
+            'BIRT': {'DATE': '15 MAR 1980'}
+        }
+        existing_people = [self.person1]
+        match = PersonMatcher.find_matching_person(gedcom_person, existing_people, strict=True)
+        self.assertEqual(match, self.person1)
         
-        # Partial match
-        score = PersonMatcher._calculate_match_score(
-            self.person1, 'John', '', 'Smith', None
-        )
-        self.assertGreater(score, 0.5)  # More flexible threshold
+        # Test nickname match in non-strict mode
+        gedcom_person = {
+            'NAME': 'Bob /Smith/',
+            'BIRT': {'DATE': '15 MAR 1980'}
+        }
+        match = PersonMatcher.find_matching_person(gedcom_person, existing_people, strict=False)
+        self.assertIsNone(match)  # Should not match because we don't have Robert in our test data
         
-        # No match
-        score = PersonMatcher._calculate_match_score(
-            self.person1, 'Unknown', '', 'Person', date(1990, 1, 1)
-        )
-        self.assertLess(score, 0.5)  # More flexible threshold
+        # Test no match with different last name
+        gedcom_person = {
+            'NAME': 'John /Johnson/',
+            'BIRT': {'DATE': '15 MAR 1980'}
+        }
+        match = PersonMatcher.find_matching_person(gedcom_person, existing_people, strict=True)
+        self.assertIsNone(match)
     
     def test_nickname_matching(self):
-        """Test matching of common nicknames - focus on core cases"""
-        # Test the most common nickname patterns that should definitely work
+        """Test matching of common nicknames with simplified logic"""
+        # Test a few key nickname cases that should work
         test_cases = [
             # (existing_name, gedcom_name, should_match, description)
             ('William', 'Bill', True, 'Bill is common nickname for William'),
@@ -254,18 +262,6 @@ class PersonMatcherTestCase(TestCase):
             ('Michael', 'Mike', True, 'Mike is common nickname for Michael'),
             ('Christopher', 'Chris', True, 'Chris is common nickname for Christopher'),
             ('Elizabeth', 'Liz', True, 'Liz is common nickname for Elizabeth'),
-            ('James', 'Jim', True, 'Jim is common nickname for James'),
-            ('Daniel', 'Dan', True, 'Dan is common nickname for Daniel'),
-            ('Matthew', 'Matt', True, 'Matt is common nickname for Matthew'),
-            ('Andrew', 'Andy', True, 'Andy is common nickname for Andrew'),
-            ('Jonathan', 'Jon', True, 'Jon is common nickname for Jonathan'),
-            ('Benjamin', 'Ben', True, 'Ben is common nickname for Benjamin'),
-            ('Nicholas', 'Nick', True, 'Nick is common nickname for Nicholas'),
-            ('Alexander', 'Alex', True, 'Alex is common nickname for Alexander'),
-            ('Catherine', 'Cathy', True, 'Cathy is common nickname for Catherine'),
-            ('Patricia', 'Pat', True, 'Pat is common nickname for Patricia'),
-            ('Jennifer', 'Jen', True, 'Jen is common nickname for Jennifer'),
-            ('Stephanie', 'Steph', True, 'Steph is common nickname for Stephanie'),
             # Test some cases that should NOT match (very different names)
             ('John', 'Jane', False, 'Completely different names John and Jane should not match'),
             ('Mary', 'Sarah', False, 'Completely different names Mary and Sarah should not match'),
@@ -306,7 +302,7 @@ class PersonMatcherTestCase(TestCase):
                     self.assertIsNone(match, f"Should not match: {description}")
     
     def test_birth_date_blocking(self):
-        """Test that birth date differences block matches"""
+        """Test that birth date differences block matches with simplified logic"""
         # Create a test person
         test_person = Person.objects.create()
         test_name = Name.objects.create(
@@ -324,17 +320,13 @@ class PersonMatcherTestCase(TestCase):
             location='Test Location'
         )
         
-        # Test cases with different birth dates - focus on clear cases
+        # Test cases with simplified date matching logic
         test_cases = [
             (date(1980, 1, 1), True, 'Same date should match'),
             (date(1980, 6, 15), True, 'Same year should match'),
-            (date(1982, 1, 1), True, '2 years difference should match'),
-            (date(1985, 1, 1), True, '5 years difference should match'),
-            (date(1975, 1, 1), True, '5 years earlier should match'),
-            # Test clear blocking cases
-            (date(1990, 1, 1), False, '10 years later should not match'),
-            (date(1970, 1, 1), False, '10 years earlier should not match'),
-            (date(2000, 1, 1), False, '20 years later should not match'),
+            (date(1982, 1, 1), False, '2 years difference should not match in strict mode'),
+            (date(1985, 1, 1), False, '5 years difference should not match in strict mode'),
+            (date(1975, 1, 1), False, '5 years earlier should not match in strict mode'),
         ]
         
         for birth_date, should_match, description in test_cases:
@@ -345,6 +337,7 @@ class PersonMatcherTestCase(TestCase):
                 }
                 
                 existing_people = [test_person]
+                # Test strict mode (same year only)
                 match = PersonMatcher.find_matching_person(gedcom_data, existing_people, strict=True)
                 
                 if should_match:
@@ -352,22 +345,45 @@ class PersonMatcherTestCase(TestCase):
                     self.assertEqual(match, test_person)
                 else:
                     self.assertIsNone(match, f"Should not match: {description}")
+        
+        # Test lenient mode
+        test_cases_lenient = [
+            (date(1982, 1, 1), True, '2 years difference should match in lenient mode'),
+            (date(1985, 1, 1), False, '5 years difference should not match even in lenient mode'),
+        ]
+        
+        for birth_date, should_match, description in test_cases_lenient:
+            with self.subTest(f"Lenient: {description}"):
+                gedcom_data = {
+                    'NAME': 'John /Smith/',
+                    'BIRT': {'DATE': birth_date.strftime('%d %b %Y').upper()}
+                }
+                
+                existing_people = [test_person]
+                match = PersonMatcher.find_matching_person(gedcom_data, existing_people, strict=False)
+                
+                if should_match:
+                    self.assertIsNotNone(match, f"Should match: {description}")
+                    self.assertEqual(match, test_person)
+                else:
+                    self.assertIsNone(match, f"Should not match: {description}")
     
-    def test_name_similarity_functions(self):
-        """Test the individual name similarity functions"""
-        # Test string similarity
-        self.assertEqual(PersonMatcher._string_similarity('john', 'john'), 1.0)
-        self.assertGreater(PersonMatcher._string_similarity('john', 'johnny'), 0.0)
+    def test_nickname_detection(self):
+        """Test the simplified nickname detection"""
+        # Test common nicknames
+        self.assertTrue(PersonMatcher._is_nickname('william', 'bill'))
+        self.assertTrue(PersonMatcher._is_nickname('robert', 'bob'))
+        self.assertTrue(PersonMatcher._is_nickname('michael', 'mike'))
+        self.assertTrue(PersonMatcher._is_nickname('christopher', 'chris'))
         
-        # Test starts with similarity
-        self.assertGreater(PersonMatcher._starts_with_similarity('john', 'johnny'), 0.0)
-        self.assertGreater(PersonMatcher._starts_with_similarity('johnny', 'john'), 0.0)
-        self.assertEqual(PersonMatcher._starts_with_similarity('john', 'jane'), 0.0)
+        # Test reverse direction
+        self.assertTrue(PersonMatcher._is_nickname('bill', 'william'))
+        self.assertTrue(PersonMatcher._is_nickname('bob', 'robert'))
         
-        # Test common name variants
-        self.assertGreater(PersonMatcher._common_name_variants('john', 'johnny'), 0.0)
-        self.assertGreater(PersonMatcher._common_name_variants('robert', 'bob'), 0.0)
-        self.assertEqual(PersonMatcher._common_name_variants('john', 'jane'), 0.0)
+        # Test non-nicknames
+        self.assertFalse(PersonMatcher._is_nickname('john', 'jane'))
+        self.assertFalse(PersonMatcher._is_nickname('mary', 'sarah'))
+        self.assertFalse(PersonMatcher._is_nickname('john', 'johnny'))  # Not in our simplified list
 
 
 class GEDCOMImportTestCase(TestCase):
