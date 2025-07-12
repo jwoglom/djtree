@@ -565,5 +565,419 @@ class GEDCOMImporterIntegrationTestCase(TestCase):
             os.unlink(temp_file)
 
 
+class GEDCOMAdvancedTestCase(TestCase):
+    """Advanced GEDCOM import tests using canonical examples"""
+    
+    def test_import_multiple_marriages(self):
+        """Test import with multiple marriages and divorce"""
+        multiple_marriages_gedcom = """0 HEAD
+1 GEDC
+2 VERS 5.5.5
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME John /Smith/
+2 GIVN John
+2 SURN Smith
+1 SEX M
+1 BIRT
+2 DATE 15 MAR 1980
+2 PLAC New York, NY, USA
+0 @I2@ INDI
+1 NAME Mary /Johnson/
+2 GIVN Mary
+2 SURN Johnson
+1 SEX F
+1 BIRT
+2 DATE 22 AUG 1985
+2 PLAC Chicago, IL, USA
+0 @I3@ INDI
+1 NAME Jane /Wilson/
+2 GIVN Jane
+2 SURN Wilson
+1 SEX F
+1 BIRT
+2 DATE 10 JAN 1982
+2 PLAC Boston, MA, USA
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 MARR
+2 DATE 05 JUN 2005
+2 PLAC Las Vegas, NV, USA
+1 DIV
+2 DATE 15 JUL 2010
+2 PLAC Los Angeles, CA, USA
+0 @F2@ FAM
+1 HUSB @I1@
+1 WIFE @I3@
+1 MARR
+2 DATE 20 AUG 2012
+2 PLAC San Francisco, CA, USA
+0 TRLR"""
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ged', delete=False) as f:
+            f.write(multiple_marriages_gedcom)
+            temp_file = f.name
+        
+        try:
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Check people were created
+            self.assertEqual(Person.objects.count(), 3)
+            
+            # Check marriages
+            john = Person.objects.filter(names__first_name='John').first()
+            mary = Person.objects.filter(names__first_name='Mary').first()
+            jane = Person.objects.filter(names__first_name='Jane').first()
+            
+            # Should have 4 marriage events (2 marriages, each with 2 records for symmetry)
+            self.assertEqual(MarriageEvent.objects.count(), 4)
+            
+            # Check divorce event
+            divorce_events = DivorceEvent.objects.all()
+            self.assertEqual(divorce_events.count(), 2)  # Symmetric divorce records
+            
+            # Check current spouse (should be Jane, the most recent marriage)
+            self.assertEqual(john.spouse, jane)
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_import_immigration_citizenship(self):
+        """Test import with immigration and citizenship events"""
+        immigration_gedcom = """0 HEAD
+1 GEDC
+2 VERS 5.5.5
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Maria /Garcia/
+2 GIVN Maria
+2 SURN Garcia
+1 SEX F
+1 BIRT
+2 DATE 15 MAR 1980
+2 PLAC Madrid, Spain
+1 EMIG
+2 DATE 10 JUN 2000
+2 PLAC Madrid, Spain
+3 PLAC_TO New York, NY, USA
+1 IMMI
+2 DATE 12 JUN 2000
+2 PLAC New York, NY, USA
+3 PLAC_FROM Madrid, Spain
+1 NATU
+2 DATE 15 JUL 2010
+2 PLAC New York, NY, USA
+0 TRLR"""
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ged', delete=False) as f:
+            f.write(immigration_gedcom)
+            temp_file = f.name
+        
+        try:
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Check person was created
+            self.assertEqual(Person.objects.count(), 1)
+            
+            maria = Person.objects.filter(names__first_name='Maria').first()
+            self.assertIsNotNone(maria)
+            
+            # Check immigration event
+            immigration = ImmigrationEvent.objects.filter(person=maria).first()
+            self.assertIsNotNone(immigration)
+            self.assertEqual(immigration.from_country, 'Madrid, Spain')
+            self.assertEqual(immigration.to_country, 'New York, NY, USA')
+            
+            # Check citizenship event
+            citizenship = CitizenshipEvent.objects.filter(person=maria).first()
+            self.assertIsNotNone(citizenship)
+            self.assertEqual(citizenship.country, 'New York, NY, USA')
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_import_gender_handling(self):
+        """Test import with different gender values"""
+        gender_gedcom = """0 HEAD
+1 GEDC
+2 VERS 5.5.5
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME John /Smith/
+2 GIVN John
+2 SURN Smith
+1 SEX M
+1 BIRT
+2 DATE 15 MAR 1980
+0 @I2@ INDI
+1 NAME Mary /Johnson/
+2 GIVN Mary
+2 SURN Johnson
+1 SEX F
+1 BIRT
+2 DATE 22 AUG 1985
+0 @I3@ INDI
+1 NAME Alex /Taylor/
+2 GIVN Alex
+2 SURN Taylor
+1 SEX U
+1 BIRT
+2 DATE 10 JAN 1990
+0 TRLR"""
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ged', delete=False) as f:
+            f.write(gender_gedcom)
+            temp_file = f.name
+        
+        try:
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Check people were created
+            self.assertEqual(Person.objects.count(), 3)
+            
+            john = Person.objects.filter(names__first_name='John').first()
+            mary = Person.objects.filter(names__first_name='Mary').first()
+            alex = Person.objects.filter(names__first_name='Alex').first()
+            
+            # Check gender values
+            self.assertEqual(john.gender, Person.Gender.MALE)
+            self.assertEqual(mary.gender, Person.Gender.FEMALE)
+            self.assertEqual(alex.gender, Person.Gender.UNKNOWN)
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_import_complex_family_tree(self):
+        """Test import with a complex multi-generation family tree"""
+        complex_tree_gedcom = """0 HEAD
+1 GEDC
+2 VERS 5.5.5
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME George /Washington/
+2 GIVN George
+2 SURN Washington
+1 SEX M
+1 BIRT
+2 DATE 22 FEB 1732
+2 PLAC Westmoreland County, VA, USA
+1 DEAT
+2 DATE 14 DEC 1799
+2 PLAC Mount Vernon, VA, USA
+0 @I2@ INDI
+1 NAME Martha /Custis/
+2 GIVN Martha
+2 SURN Custis
+1 SEX F
+1 BIRT
+2 DATE 13 JUN 1731
+2 PLAC New Kent County, VA, USA
+1 DEAT
+2 DATE 22 MAY 1802
+2 PLAC Mount Vernon, VA, USA
+0 @I3@ INDI
+1 NAME John /Washington/
+2 GIVN John
+2 SURN Washington
+1 SEX M
+1 BIRT
+2 DATE 15 MAR 1755
+2 PLAC Mount Vernon, VA, USA
+1 DEAT
+2 DATE 10 JUN 1800
+2 PLAC Mount Vernon, VA, USA
+0 @I4@ INDI
+1 NAME Martha /Washington/
+2 GIVN Martha
+2 SURN Washington
+1 SEX F
+1 BIRT
+2 DATE 20 JUL 1757
+2 PLAC Mount Vernon, VA, USA
+1 DEAT
+2 DATE 25 SEP 1801
+2 PLAC Mount Vernon, VA, USA
+0 @I5@ INDI
+1 NAME Eleanor /Washington/
+2 GIVN Eleanor
+2 SURN Washington
+1 SEX F
+1 BIRT
+2 DATE 31 MAR 1759
+2 PLAC Mount Vernon, VA, USA
+1 DEAT
+2 DATE 28 JUN 1799
+2 PLAC Mount Vernon, VA, USA
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+1 CHIL @I4@
+1 CHIL @I5@
+1 MARR
+2 DATE 06 JAN 1759
+2 PLAC White House, VA, USA
+0 TRLR"""
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ged', delete=False) as f:
+            f.write(complex_tree_gedcom)
+            temp_file = f.name
+        
+        try:
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Check all people were created
+            self.assertEqual(Person.objects.count(), 5)
+            
+            # Check family relationships
+            george = Person.objects.filter(names__first_name='George').first()
+            martha = Person.objects.filter(names__first_name='Martha', names__last_name='Custis').first()
+            
+            # George should have 3 children
+            self.assertEqual(george.children.count(), 3)
+            
+            # Martha should have 3 children
+            self.assertEqual(martha.children.count(), 3)
+            
+            # Each child should have 2 parents
+            for child in george.children.all():
+                self.assertEqual(child.parents.count(), 2)
+            
+            # Check marriage
+            self.assertEqual(george.spouse, martha)
+            self.assertEqual(martha.spouse, george)
+            
+            # Check death events
+            self.assertFalse(george.is_living)
+            self.assertFalse(martha.is_living)
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_import_edge_cases(self):
+        """Test import with various edge cases"""
+        edge_cases_gedcom = """0 HEAD
+1 GEDC
+2 VERS 5.5.5
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Unknown /Person/
+2 GIVN Unknown
+2 SURN Person
+1 SEX U
+0 @I2@ INDI
+1 NAME John /Doe/
+2 GIVN John
+2 SURN Doe
+1 SEX M
+1 BIRT
+2 DATE ABT 1900
+0 @I3@ INDI
+1 NAME Jane /Doe/
+2 GIVN Jane
+2 SURN Doe
+1 SEX F
+1 BIRT
+2 DATE 1900
+0 @I4@ INDI
+1 NAME Bob /Smith/
+2 GIVN Bob
+2 SURN Smith
+1 SEX M
+1 BIRT
+2 DATE 15 MAR 1980
+1 DEAT
+2 DATE 10 JUN 2020
+0 TRLR"""
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ged', delete=False) as f:
+            f.write(edge_cases_gedcom)
+            temp_file = f.name
+        
+        try:
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Check people were created
+            self.assertEqual(Person.objects.count(), 4)
+            
+            # Unknown person should be created
+            unknown = Person.objects.filter(names__first_name='Unknown').first()
+            self.assertIsNotNone(unknown)
+            self.assertEqual(unknown.gender, Person.Gender.UNKNOWN)
+            
+            # Person with approximate birth date should be created
+            john = Person.objects.filter(names__first_name='John').first()
+            self.assertIsNotNone(john)
+            
+            # Person with death event should be marked as deceased
+            bob = Person.objects.filter(names__first_name='Bob').first()
+            self.assertIsNotNone(bob)
+            self.assertFalse(bob.is_living)
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_import_large_dataset(self):
+        """Test import with a larger dataset to check performance"""
+        large_dataset = """0 HEAD
+1 GEDC
+2 VERS 5.5.5
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8"""
+        
+        # Add 20 individuals
+        for i in range(1, 21):
+            large_dataset += f"""
+0 @I{i}@ INDI
+1 NAME Person{i} /Family{i}/
+2 GIVN Person{i}
+2 SURN Family{i}
+1 SEX {'M' if i % 2 == 0 else 'F'}
+1 BIRT
+2 DATE {15 + (i % 15)} MAR {1980 + (i % 20)}
+2 PLAC City{i}, State{i}, USA"""
+        
+        # Add 10 families
+        for i in range(1, 11):
+            large_dataset += f"""
+0 @F{i}@ FAM
+1 HUSB @I{i*2-1}@
+1 WIFE @I{i*2}@
+1 CHIL @I{i*2+1}@
+1 MARR
+2 DATE {10 + (i % 20)} JUN {2000 + (i % 10)}
+2 PLAC Wedding{i}, USA"""
+        
+        large_dataset += "\n0 TRLR"
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ged', delete=False) as f:
+            f.write(large_dataset)
+            temp_file = f.name
+        
+        try:
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Check all people were created
+            self.assertEqual(Person.objects.count(), 20)
+            
+            # Check all names were created
+            self.assertEqual(Name.objects.count(), 20)
+            
+            # Check birth events were created
+            self.assertEqual(BirthEvent.objects.count(), 20)
+            
+            # Check marriage events were created (10 families * 2 records each)
+            self.assertEqual(MarriageEvent.objects.count(), 20)
+            
+        finally:
+            os.unlink(temp_file)
+
+
 # Import date for the test cases
 from datetime import date
