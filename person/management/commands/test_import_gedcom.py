@@ -389,7 +389,7 @@ class GEDCOMImportTestCase(TestCase):
             out = StringIO()
             call_command('import_gedcom', temp_file, '--no-pretend', stdout=out)
             
-            # Should have 3 people total (1 existing + 2 new)
+            # Should have 3 people total (1 existing + 2 new, since John Smith is detected as duplicate)
             self.assertEqual(Person.objects.count(), 3)
             
             # Should have 3 names total (1 existing + 2 new)

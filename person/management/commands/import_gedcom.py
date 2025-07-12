@@ -121,31 +121,19 @@ class PersonMatcher:
         birt = gedcom_person.get('BIRT')
         if isinstance(birt, dict):
             birth_date = PersonMatcher._parse_date(birt.get('DATE', ''))
+        
+        # Find the best match using scoring
+        best_match = None
+        best_score = 0.0
+        
         for person in existing_people:
-            for person_name in person.names.all():
-                # Strict: require exact first, last, and birth date if present
-                if strict:
-                    if (first_name and last_name and
-                        first_name.lower() == person_name.first_name.lower() and
-                        last_name.lower() == person_name.last_name.lower()):
-                        if birth_date and person.birth and person.birth.date:
-                            if birth_date == person.birth.date:
-                                return person
-                        elif not birth_date:
-                            return person
-                else:
-                    name_match = (first_name.lower() in person_name.first_name.lower() or
-                                  person_name.first_name.lower() in first_name.lower()) and \
-                                 (last_name.lower() in person_name.last_name.lower() or
-                                  person_name.last_name.lower() in last_name.lower())
-                    if name_match:
-                        if birth_date and person.birth and person.birth.date:
-                            date_diff = abs((birth_date - person.birth.date).days)
-                            if date_diff <= 366:
-                                return person
-                        else:
-                            return person
-        return None
+            score = PersonMatcher._calculate_match_score(person, first_name, middle_name, last_name, birth_date, strict)
+            # Lower thresholds for better nickname detection
+            if score > best_score and score >= (0.6 if strict else 0.5):
+                best_match = person
+                best_score = score
+        
+        return best_match
     
     @staticmethod
     def _parse_name(name_str: str) -> Tuple[str, str, str]:
@@ -212,50 +200,177 @@ class PersonMatcher:
     
     @staticmethod
     def _calculate_match_score(person: Person, first_name: str, middle_name: str, 
-                             last_name: str, birth_date: Optional[date]) -> float:
-        """Calculate a match score between 0 and 1"""
+                             last_name: str, birth_date: Optional[date], strict: bool = True) -> float:
+        """Calculate a match score between 0 and 1 using intelligent heuristics"""
         score = 0.0
         total_weight = 0.0
         
-        # Check names
+        # Check names against all person names
+        name_score = 0.0
         for person_name in person.names.all():
-            name_score = 0.0
-            
-            # Last name match (highest weight)
-            if last_name and person_name.last_name:
-                if last_name.lower() == person_name.last_name.lower():
-                    name_score += 0.4
-                elif last_name.lower() in person_name.last_name.lower() or person_name.last_name.lower() in last_name.lower():
-                    name_score += 0.2
-            
-            # First name match
-            if first_name and person_name.first_name:
-                if first_name.lower() == person_name.first_name.lower():
-                    name_score += 0.3
-                elif first_name.lower() in person_name.first_name.lower() or person_name.first_name.lower() in first_name.lower():
-                    name_score += 0.15
-            
-            # Middle name match
-            if middle_name and person_name.middle_name:
-                if middle_name.lower() == person_name.middle_name.lower():
-                    name_score += 0.2
-                elif middle_name.lower() in person_name.middle_name.lower() or person_name.middle_name.lower() in middle_name.lower():
-                    name_score += 0.1
-            
-            score = max(score, name_score)
+            current_name_score = PersonMatcher._calculate_name_similarity(
+                first_name, middle_name, last_name,
+                person_name.first_name, person_name.middle_name, person_name.last_name
+            )
+            name_score = max(name_score, current_name_score)
         
-        total_weight += 0.9  # Name weight
+        # Name weight is higher for strict matching
+        name_weight = 0.8 if strict else 0.7
+        score += name_score * name_weight
+        total_weight += name_weight
         
-        # Check birth date
+        # Check birth date with more flexible matching
         if birth_date and person.birth and person.birth.date:
-            date_diff = abs((birth_date - person.birth.date).days)
-            if date_diff == 0:
-                score += 0.1
-            elif date_diff <= 365:  # Within a year
-                score += 0.05
-            total_weight += 0.1
+            date_score = PersonMatcher._calculate_date_similarity(birth_date, person.birth.date, strict)
+            
+            # Block matches if birth dates are too far apart
+            date_diff_years = abs(birth_date.year - person.birth.date.year)
+            if date_diff_years > 5:  # More than 5 years difference
+                return 0.0  # No match at all
+            
+            date_weight = 0.2 if strict else 0.3
+            score += date_score * date_weight
+            total_weight += date_weight
         
         return score / total_weight if total_weight > 0 else 0.0
+    
+    @staticmethod
+    def _calculate_name_similarity(first1: str, middle1: str, last1: str,
+                                 first2: str, middle2: str, last2: str) -> float:
+        """Calculate name similarity using multiple heuristics"""
+        if not first1 or not first2 or not last1 or not last2:
+            return 0.0
+        
+        # Normalize names
+        first1, first2 = first1.lower().strip(), first2.lower().strip()
+        last1, last2 = last1.lower().strip(), last2.lower().strip()
+        
+        # Last name similarity (high weight but not dominant)
+        last_name_score = PersonMatcher._string_similarity(last1, last2)
+        
+        # First name similarity with multiple strategies
+        first_name_score = max(
+            PersonMatcher._string_similarity(first1, first2),  # Exact similarity
+            PersonMatcher._starts_with_similarity(first1, first2),  # One starts with the other
+            PersonMatcher._common_name_variants(first1, first2)  # Common name patterns
+        )
+        
+        # Be more strict about first name matching - require at least some similarity
+        if first_name_score < 0.3:
+            return 0.0  # No match if first names are too different
+        
+        # Middle name similarity (lower weight)
+        middle_name_score = 0.0
+        if middle1 and middle2:
+            middle_name_score = PersonMatcher._string_similarity(middle1.lower(), middle2.lower())
+        elif not middle1 and not middle2:
+            middle_name_score = 1.0  # Both missing middle names
+        
+        # Weighted combination - give more weight to first name
+        return (last_name_score * 0.3 + first_name_score * 0.6 + middle_name_score * 0.1)
+    
+    @staticmethod
+    def _string_similarity(str1: str, str2: str) -> float:
+        """Calculate string similarity using multiple strategies"""
+        if str1 == str2:
+            return 1.0
+        
+        # Simple similarity based on common substrings
+        if len(str1) < 3 or len(str2) < 3:
+            return 0.0
+        
+        # Check if one string contains the other
+        if str1 in str2 or str2 in str1:
+            return 0.9
+        
+        # Check for common prefixes/suffixes
+        min_len = min(len(str1), len(str2))
+        if min_len >= 3:
+            # Common prefix
+            prefix_len = 0
+            for i in range(min_len):
+                if str1[i] == str2[i]:
+                    prefix_len += 1
+                else:
+                    break
+            
+            # Common suffix
+            suffix_len = 0
+            for i in range(min_len):
+                if str1[-(i+1)] == str2[-(i+1)]:
+                    suffix_len += 1
+                else:
+                    break
+            
+            # Calculate similarity based on common parts
+            common_ratio = (prefix_len + suffix_len) / (len(str1) + len(str2))
+            return min(common_ratio * 2, 0.8)  # Cap at 0.8 for partial matches
+        
+        return 0.0
+    
+    @staticmethod
+    def _starts_with_similarity(str1: str, str2: str) -> float:
+        """Check if one name starts with the other (for nicknames)"""
+        if len(str1) < 2 or len(str2) < 2:
+            return 0.0
+        
+        if str1.startswith(str2) or str2.startswith(str1):
+            # Higher score for longer common prefix
+            min_len = min(len(str1), len(str2))
+            max_len = max(len(str1), len(str2))
+            return 0.7 + (min_len / max_len) * 0.2
+        
+        return 0.0
+    
+    @staticmethod
+    def _common_name_variants(str1: str, str2: str) -> float:
+        """Detect common name patterns without hardcoding"""
+        if len(str1) < 2 or len(str2) < 2:
+            return 0.0
+        
+        # Check for common diminutive patterns
+        # If one is significantly shorter and they share a prefix, it might be a nickname
+        if abs(len(str1) - len(str2)) >= 2:
+            shorter, longer = (str1, str2) if len(str1) < len(str2) else (str2, str1)
+            if longer.startswith(shorter) and len(shorter) >= 2:
+                return 0.6
+        
+        # Check for vowel/consonant patterns (common in name variations)
+        vowels1 = sum(1 for c in str1 if c in 'aeiou')
+        vowels2 = sum(1 for c in str2 if c in 'aeiou')
+        consonants1 = len(str1) - vowels1
+        consonants2 = len(str2) - vowels2
+        
+        # If they have similar vowel/consonant patterns, they might be related
+        if abs(vowels1 - vowels2) <= 1 and abs(consonants1 - consonants2) <= 2:
+            return 0.4
+        
+        return 0.0
+    
+    @staticmethod
+    def _calculate_date_similarity(date1: date, date2: date, strict: bool) -> float:
+        """Calculate date similarity with flexible matching"""
+        if date1 == date2:
+            return 1.0
+        
+        date_diff = abs((date1 - date2).days)
+        
+        if strict:
+            # Strict: within 30 days or same year
+            if date_diff <= 30:
+                return 0.9
+            elif date1.year == date2.year:
+                return 0.7
+            else:
+                return 0.0
+        else:
+            # Lenient: within 1 year
+            if date_diff <= 365:
+                return 0.8
+            elif abs(date1.year - date2.year) <= 1:
+                return 0.6
+            else:
+                return 0.0
 
 
 class GEDCOMImporter:
