@@ -54,8 +54,14 @@ class Person(models.Model):
 
     @property
     def spouse(self):
-        """Get the current spouse of this person"""
-        return self.spouses.filter(marriageevents__ended=False).first()
+        """Get the current spouse of this person (returns the other person, not self)"""
+        marriage = self.marriageevents.filter(ended=False).first()
+        if marriage:
+            return marriage.other_person
+        marriage = self.marriageevents_as_partner.filter(ended=False).first()
+        if marriage:
+            return marriage.person
+        return None
     
     @property
     def events(self):
