@@ -265,6 +265,9 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
             </div>
           )}
         </div>
+        <a href={`/admin/person/person/${data.id}/change/`} target="_blank" style={{position: 'absolute', bottom: '4px', right: '4px', color: '#f0f0f0', textDecoration: 'none'}}>
+          ✎
+        </a>
       </div>
     </div>
   );
