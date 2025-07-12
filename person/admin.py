@@ -224,6 +224,7 @@ class PersonAdmin(admin.ModelAdmin):
     list_filter = ('gender', 'is_living', LastNameFilter)
     search_fields = ('names__first_name', 'names__middle_name', 'names__last_name')
     ordering_fields = ('birthevents__date', 'deathevents__date')
+    ordering = ['-birthevents__date']  # Sort by birth date, newest to oldest
     fields = ('gender',)
 
     def get_first_name(self, obj):

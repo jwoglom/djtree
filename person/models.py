@@ -242,26 +242,30 @@ class CoupleEvent(Event):
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
+        # Block recursion
+        skip_symmetric = kwargs.pop('skip_symmetric', False)
+        
         super().save(*args, **kwargs)
         
-        # Find or create the symmetric event
-        symmetric_event, created = self.__class__.objects.get_or_create(
-            person=self.other_person,
-            other_person=self.person,
-            date=self.date,
-            defaults={
-                'location': self.location,
-                'comment': self.comment
-            }
-        )
-        
-        # If this is an update (not new) and the symmetric event exists,
-        # update its fields to match this one
-        if not is_new and not created:
-            symmetric_event.location = self.location
-            symmetric_event.comment = self.comment
-            symmetric_event.date = self.date
-            symmetric_event.save(update_fields=['location', 'comment', 'date'])
+        if not skip_symmetric:
+            # Find or create the symmetric event
+            symmetric_event, created = self.__class__.objects.get_or_create(
+                person=self.other_person,
+                other_person=self.person,
+                date=self.date,
+                defaults={
+                    'location': self.location,
+                    'comment': self.comment
+                }
+            )
+
+            # If this is an update (not new) and the symmetric event exists,
+            # update its fields to match this one
+            if not is_new and not created:
+                symmetric_event.location = self.location
+                symmetric_event.comment = self.comment
+                symmetric_event.date = self.date
+                symmetric_event.save(update_fields=['location', 'comment', 'date'], skip_symmetric=True)
 
 class MarriageEvent(CoupleEvent):
     ended = models.BooleanField(default=False)  # Track if this marriage ended in divorce
