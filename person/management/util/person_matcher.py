@@ -106,6 +106,8 @@ class PersonMatcher:
             'jennifer': ['jen'],
             'stephanie': ['steph'],
             'catherine': ['cathy'],
+            'peter': ['pete'],
+            'christina': ['tina']
         }
         
         # Check if either name is a known nickname for the other

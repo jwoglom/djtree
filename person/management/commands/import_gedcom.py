@@ -110,8 +110,9 @@ class GEDCOMParser:
 class GEDCOMImporter:
     """Import GEDCOM data into the database"""
     
-    def __init__(self, pretend: bool = True, stdout=None):
+    def __init__(self, pretend: bool = True, strict: bool = True, stdout=None):
         self.pretend = pretend
+        self.strict = strict
         self.stats = {
             'individuals_created': 0,
             'individuals_updated': 0,
@@ -174,7 +175,7 @@ class GEDCOMImporter:
             self._write(f"Warning: Individual {gedcom_id} has no valid name")
             return None
         # Check for existing person
-        existing_person = PersonMatcher.find_matching_person(data, existing_people, strict=True)
+        existing_person = PersonMatcher.find_matching_person(data, existing_people, strict=self.strict)
         if existing_person:
             self._write(f"Found existing person: {existing_person}")
             person = existing_person
@@ -415,18 +416,25 @@ class Command(BaseCommand):
             action='store_true',
             help='Verbose output'
         )
+        parser.add_argument(
+            '--lenient',
+            action='store_true',
+            help='Use lenient matching (allows nicknames like Pete/Peter, Tina/Christina)'
+        )
     
     def handle(self, *args, **options):
         file_path = options['file_path']
         pretend = not options['no_pretend']
         verbose = options['verbose']
+        strict = not options['lenient']  # Default to strict, use lenient if --lenient flag is set
         
         if verbose:
             print(f"File path: {file_path}")
             print(f"Pretend mode: {pretend}")
+            print(f"Strict matching: {strict}")
         
         try:
-            importer = GEDCOMImporter(pretend=pretend, stdout=self.stdout)
+            importer = GEDCOMImporter(pretend=pretend, strict=strict, stdout=self.stdout)
             importer.import_gedcom(file_path)
         except Exception as e:
             raise CommandError(f"Import failed: {e}") 

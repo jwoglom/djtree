@@ -119,6 +119,8 @@ class PersonMatcherTestCase(TestCase):
             ('Michael', 'Mike', True, 'Mike is common nickname for Michael'),
             ('Christopher', 'Chris', True, 'Chris is common nickname for Christopher'),
             ('Elizabeth', 'Liz', True, 'Liz is common nickname for Elizabeth'),
+            ('Peter', 'Pete', True, 'Pete is common nickname for Peter'),
+            ('Christina', 'Tina', True, 'Tina is common nickname for Christina'),
             # Test some cases that should NOT match (very different names)
             ('John', 'Jane', False, 'Completely different names John and Jane should not match'),
             ('Mary', 'Sarah', False, 'Completely different names Mary and Sarah should not match'),
@@ -236,11 +238,109 @@ class PersonMatcherTestCase(TestCase):
         # Test reverse direction
         self.assertTrue(PersonMatcher._is_nickname('bill', 'william'))
         self.assertTrue(PersonMatcher._is_nickname('bob', 'robert'))
+        self.assertTrue(PersonMatcher._is_nickname('pete', 'peter'))
+        self.assertTrue(PersonMatcher._is_nickname('tina', 'christina'))
         
         # Test non-nicknames
         self.assertFalse(PersonMatcher._is_nickname('john', 'jane'))
         self.assertFalse(PersonMatcher._is_nickname('mary', 'sarah'))
         self.assertFalse(PersonMatcher._is_nickname('john', 'johnny'))  # Not in our simplified list
+    
+    def test_full_name_nickname_matching(self):
+        """Test that full names with nicknames match correctly"""
+        # Test "Pete Gibson" matches "Peter Gibson"
+        test_person = Person.objects.create()
+        test_name = Name.objects.create(
+            first_name='Peter',
+            last_name='Gibson'
+        )
+        PersonName.objects.create(
+            person=test_person,
+            name=test_name,
+            name_type=PersonName.Type.BIRTH
+        )
+        BirthEvent.objects.create(
+            person=test_person,
+            date=date(1980, 1, 1),
+            location='Test Location'
+        )
+        
+        # Test GEDCOM data with nickname
+        gedcom_data = {
+            'NAME': 'Pete /Gibson/',
+            'BIRT': {'DATE': '01 JAN 1980'}
+        }
+        
+        existing_people = [test_person]
+        match = PersonMatcher.find_matching_person(gedcom_data, existing_people, strict=False)
+        
+        self.assertIsNotNone(match, "Pete Gibson should match Peter Douglas Gibson")
+        self.assertEqual(match, test_person)
+        
+        # Test "Tina Gibson" matches "Christina Gibson"
+        test_person2 = Person.objects.create()
+        test_name2 = Name.objects.create(
+            first_name='Christina',
+            last_name='Gibson'
+        )
+        PersonName.objects.create(
+            person=test_person2,
+            name=test_name2,
+            name_type=PersonName.Type.BIRTH
+        )
+        BirthEvent.objects.create(
+            person=test_person2,
+            date=date(1950, 6, 1),
+            location='Test Location'
+        )
+        
+        # Test GEDCOM data with nickname
+        gedcom_data2 = {
+            'NAME': 'Tina /Gibson/',
+            'BIRT': {'DATE': '1 JUN 1950'}
+        }
+        
+        existing_people = [test_person2]
+        match = PersonMatcher.find_matching_person(gedcom_data2, existing_people, strict=False)
+        
+        self.assertIsNotNone(match, "Tina Gibson should match Christina Gibson")
+        self.assertEqual(match, test_person2)
+    
+    def test_full_name_nickname_matching_strict_mode(self):
+        """Test that nickname matching only works in non-strict mode"""
+        # Create test person with full name
+        test_person = Person.objects.create()
+        test_name = Name.objects.create(
+            first_name='Peter',
+            last_name='Gibson'
+        )
+        PersonName.objects.create(
+            person=test_person,
+            name=test_name,
+            name_type=PersonName.Type.BIRTH
+        )
+        BirthEvent.objects.create(
+            person=test_person,
+            date=date(1980, 1, 1),
+            location='Test Location'
+        )
+        
+        # Test GEDCOM data with nickname in strict mode (should not match)
+        gedcom_data = {
+            'NAME': 'Pete /Gibson/',
+            'BIRT': {'DATE': '01 JAN 1980'}
+        }
+        
+        existing_people = [test_person]
+        match = PersonMatcher.find_matching_person(gedcom_data, existing_people, strict=True)
+        
+        self.assertIsNone(match, "Pete Gibson should NOT match Peter Douglas Gibson in strict mode")
+        
+        # Test in non-strict mode (should match)
+        match = PersonMatcher.find_matching_person(gedcom_data, existing_people, strict=False)
+        
+        self.assertIsNotNone(match, "Pete Gibson should match Peter Douglas Gibson in non-strict mode")
+        self.assertEqual(match, test_person)
 
 
 class PersonMatcherUtilityTestCase(TestCase):
