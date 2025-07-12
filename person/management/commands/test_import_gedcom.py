@@ -842,3 +842,275 @@ class GEDCOMAdvancedTestCase(TestCase):
 
 # Import date for the test cases
 from datetime import date
+
+
+class GEDCOMDuplicateImportTestCase(TestCase):
+    """Test that duplicate imports don't create additional records"""
+    
+    def setUp(self):
+        self.sample_gedcom = """0 HEAD
+1 GEDC
+2 VERS 5.5.5
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME John /Smith/
+2 GIVN John
+2 SURN Smith
+1 SEX M
+1 BIRT
+2 DATE 15 MAR 1980
+2 PLAC New York, NY, USA
+1 DEAT
+2 DATE 10 JUN 2020
+2 PLAC Los Angeles, CA, USA
+2 CAUS Heart attack
+0 @I2@ INDI
+1 NAME Mary /Johnson/
+2 GIVN Mary
+2 SURN Johnson
+1 SEX F
+1 BIRT
+2 DATE 22 AUG 1985
+2 PLAC Chicago, IL, USA
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+1 MARR
+2 DATE 05 JUN 2005
+2 PLAC Las Vegas, NV, USA
+0 @I3@ INDI
+1 NAME Robert /Smith/
+2 GIVN Robert
+2 SURN Smith
+1 SEX M
+1 BIRT
+2 DATE 12 DEC 2010
+2 PLAC Los Angeles, CA, USA
+0 TRLR"""
+    
+    def test_duplicate_import_no_changes(self):
+        """Test that running the same import twice creates no additional records"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ged', delete=False) as f:
+            f.write(self.sample_gedcom)
+            temp_file = f.name
+        
+        try:
+            # First import
+            out1 = StringIO()
+            call_command('import_gedcom', temp_file, '--no-pretend', stdout=out1)
+            
+            # Record counts after first import
+            people_count_1 = Person.objects.count()
+            names_count_1 = Name.objects.count()
+            person_names_count_1 = PersonName.objects.count()
+            birth_events_count_1 = BirthEvent.objects.count()
+            death_events_count_1 = DeathEvent.objects.count()
+            marriage_events_count_1 = MarriageEvent.objects.count()
+            relationships_count_1 = ParentChildRelationship.objects.count()
+            
+            # Second import with same file
+            out2 = StringIO()
+            call_command('import_gedcom', temp_file, '--no-pretend', stdout=out2)
+            
+            # Record counts after second import
+            people_count_2 = Person.objects.count()
+            names_count_2 = Name.objects.count()
+            person_names_count_2 = PersonName.objects.count()
+            birth_events_count_2 = BirthEvent.objects.count()
+            death_events_count_2 = DeathEvent.objects.count()
+            marriage_events_count_2 = MarriageEvent.objects.count()
+            relationships_count_2 = ParentChildRelationship.objects.count()
+            
+            # Verify no additional records were created
+            self.assertEqual(people_count_1, people_count_2, "Person count should not change")
+            self.assertEqual(names_count_1, names_count_2, "Name count should not change")
+            self.assertEqual(person_names_count_1, person_names_count_2, "PersonName count should not change")
+            self.assertEqual(birth_events_count_1, birth_events_count_2, "BirthEvent count should not change")
+            self.assertEqual(death_events_count_1, death_events_count_2, "DeathEvent count should not change")
+            self.assertEqual(marriage_events_count_2, marriage_events_count_1, "MarriageEvent count should not change")
+            self.assertEqual(relationships_count_1, relationships_count_2, "ParentChildRelationship count should not change")
+            
+            # Check output shows duplicate detection
+            output2 = out2.getvalue()
+            self.assertIn('Found existing person', output2)
+            self.assertIn('Individuals updated: 3', output2)  # All 3 individuals should be detected as existing
+            self.assertIn('Individuals created: 0', output2)
+            self.assertIn('Names created: 0', output2)
+            self.assertIn('Names linked: 0', output2)
+            self.assertIn('Events created: 0', output2)
+            self.assertIn('Relationships created: 0', output2)
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_duplicate_import_name_reuse(self):
+        """Test that names are properly reused and not duplicated"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ged', delete=False) as f:
+            f.write(self.sample_gedcom)
+            temp_file = f.name
+        
+        try:
+            # First import
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Get the specific name objects
+            john_smith_name = Name.objects.filter(first_name='John', last_name='Smith').first()
+            mary_johnson_name = Name.objects.filter(first_name='Mary', last_name='Johnson').first()
+            robert_smith_name = Name.objects.filter(first_name='Robert', last_name='Smith').first()
+            
+            self.assertIsNotNone(john_smith_name)
+            self.assertIsNotNone(mary_johnson_name)
+            self.assertIsNotNone(robert_smith_name)
+            
+            # Record the IDs
+            john_smith_id = john_smith_name.id
+            mary_johnson_id = mary_johnson_name.id
+            robert_smith_id = robert_smith_name.id
+            
+            # Second import
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Verify the same name objects are still used (same IDs)
+            john_smith_name_after = Name.objects.filter(first_name='John', last_name='Smith').first()
+            mary_johnson_name_after = Name.objects.filter(first_name='Mary', last_name='Johnson').first()
+            robert_smith_name_after = Name.objects.filter(first_name='Robert', last_name='Smith').first()
+            
+            self.assertEqual(john_smith_name_after.id, john_smith_id)
+            self.assertEqual(mary_johnson_name_after.id, mary_johnson_id)
+            self.assertEqual(robert_smith_name_after.id, robert_smith_id)
+            
+            # Verify only one Name object exists for each name
+            self.assertEqual(Name.objects.filter(first_name='John', last_name='Smith').count(), 1)
+            self.assertEqual(Name.objects.filter(first_name='Mary', last_name='Johnson').count(), 1)
+            self.assertEqual(Name.objects.filter(first_name='Robert', last_name='Smith').count(), 1)
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_duplicate_import_event_reuse(self):
+        """Test that events are not duplicated on second import"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ged', delete=False) as f:
+            f.write(self.sample_gedcom)
+            temp_file = f.name
+        
+        try:
+            # First import
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Get specific people
+            john = Person.objects.filter(names__first_name='John', names__last_name='Smith').first()
+            mary = Person.objects.filter(names__first_name='Mary', names__last_name='Johnson').first()
+            
+            # Record event IDs
+            john_birth_id = john.birth.id
+            john_death_id = john.death.id
+            marriage_id = MarriageEvent.objects.filter(person=john, other_person=mary).first().id
+            
+            # Second import
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Verify the same event objects are still used (same IDs)
+            john_after = Person.objects.filter(names__first_name='John', names__last_name='Smith').first()
+            mary_after = Person.objects.filter(names__first_name='Mary', names__last_name='Johnson').first()
+            
+            self.assertEqual(john_after.birth.id, john_birth_id)
+            self.assertEqual(john_after.death.id, john_death_id)
+            
+            marriage_after = MarriageEvent.objects.filter(person=john_after, other_person=mary_after).first()
+            self.assertEqual(marriage_after.id, marriage_id)
+            
+            # Verify only one event of each type per person
+            self.assertEqual(BirthEvent.objects.filter(person=john_after).count(), 1)
+            self.assertEqual(DeathEvent.objects.filter(person=john_after).count(), 1)
+            self.assertEqual(MarriageEvent.objects.filter(person=john_after, other_person=mary_after).count(), 1)
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_duplicate_import_relationship_reuse(self):
+        """Test that relationships are not duplicated on second import"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ged', delete=False) as f:
+            f.write(self.sample_gedcom)
+            temp_file = f.name
+        
+        try:
+            # First import
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Get specific people
+            john = Person.objects.filter(names__first_name='John', names__last_name='Smith').first()
+            mary = Person.objects.filter(names__first_name='Mary', names__last_name='Johnson').first()
+            robert = Person.objects.filter(names__first_name='Robert', names__last_name='Smith').first()
+            
+            # Record relationship IDs
+            john_robert_relationship = ParentChildRelationship.objects.filter(parent=john, child=robert).first()
+            mary_robert_relationship = ParentChildRelationship.objects.filter(parent=mary, child=robert).first()
+            
+            john_robert_id = john_robert_relationship.id
+            mary_robert_id = mary_robert_relationship.id
+            
+            # Second import
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Verify the same relationship objects are still used (same IDs)
+            john_after = Person.objects.filter(names__first_name='John', names__last_name='Smith').first()
+            mary_after = Person.objects.filter(names__first_name='Mary', names__last_name='Johnson').first()
+            robert_after = Person.objects.filter(names__first_name='Robert', names__last_name='Smith').first()
+            
+            john_robert_after = ParentChildRelationship.objects.filter(parent=john_after, child=robert_after).first()
+            mary_robert_after = ParentChildRelationship.objects.filter(parent=mary_after, child=robert_after).first()
+            
+            self.assertEqual(john_robert_after.id, john_robert_id)
+            self.assertEqual(mary_robert_after.id, mary_robert_id)
+            
+            # Verify only one relationship between each parent-child pair
+            self.assertEqual(ParentChildRelationship.objects.filter(parent=john_after, child=robert_after).count(), 1)
+            self.assertEqual(ParentChildRelationship.objects.filter(parent=mary_after, child=robert_after).count(), 1)
+            
+        finally:
+            os.unlink(temp_file)
+    
+    def test_duplicate_import_name_type_verification(self):
+        """Test that imported names use the correct 'OTHER' type"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ged', delete=False) as f:
+            f.write(self.sample_gedcom)
+            temp_file = f.name
+        
+        try:
+            # First import
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Get people and verify their names use 'OTHER' type
+            john = Person.objects.filter(names__first_name='John', names__last_name='Smith').first()
+            mary = Person.objects.filter(names__first_name='Mary', names__last_name='Johnson').first()
+            robert = Person.objects.filter(names__first_name='Robert', names__last_name='Smith').first()
+            
+            # Check that all imported names use 'OTHER' type
+            john_name_relationship = PersonName.objects.filter(person=john).first()
+            mary_name_relationship = PersonName.objects.filter(person=mary).first()
+            robert_name_relationship = PersonName.objects.filter(person=robert).first()
+            
+            self.assertEqual(john_name_relationship.name_type, PersonName.Type.OTHER)
+            self.assertEqual(mary_name_relationship.name_type, PersonName.Type.OTHER)
+            self.assertEqual(robert_name_relationship.name_type, PersonName.Type.OTHER)
+            
+            # Second import should not change the name types
+            call_command('import_gedcom', temp_file, '--no-pretend')
+            
+            # Verify name types are still 'OTHER'
+            john_after = Person.objects.filter(names__first_name='John', names__last_name='Smith').first()
+            mary_after = Person.objects.filter(names__first_name='Mary', names__last_name='Johnson').first()
+            robert_after = Person.objects.filter(names__first_name='Robert', names__last_name='Smith').first()
+            
+            john_name_relationship_after = PersonName.objects.filter(person=john_after).first()
+            mary_name_relationship_after = PersonName.objects.filter(person=mary_after).first()
+            robert_name_relationship_after = PersonName.objects.filter(person=robert_after).first()
+            
+            self.assertEqual(john_name_relationship_after.name_type, PersonName.Type.OTHER)
+            self.assertEqual(mary_name_relationship_after.name_type, PersonName.Type.OTHER)
+            self.assertEqual(robert_name_relationship_after.name_type, PersonName.Type.OTHER)
+            
+        finally:
+            os.unlink(temp_file)
