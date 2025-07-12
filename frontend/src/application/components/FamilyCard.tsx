@@ -37,6 +37,25 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
     }
   };
 
+  const handleOtherClick = (e: React.MouseEvent, other: { id: string; gender: 'M' | 'F' | 'U' }) => {
+      e.stopPropagation();
+      // Create a minimal PersonData object for the spouse to trigger navigation
+      const spousePersonData: PersonData = {
+        id: other.id,
+        rels: { marriages: [], children: [], siblings: [] },
+        data: {
+          first_name: '',
+          middle_name: '',
+          last_name: '',
+          birth_date: '',
+          death_date: '',
+          avatar: '',
+          gender: other.gender
+        }
+      };
+      onClick(e, spousePersonData);
+    }
+
   const fullName = `${data.data.first_name} ${data.data.middle_name} ${data.data.last_name}`.trim();
   const dateText = data.data.birth_date 
     ? `${data.data.birth_date}${data.data.death_date ? ` - ${data.data.death_date}` : ''}`
@@ -112,7 +131,7 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
                   backgroundColor: getGenderColor('M'),
                   borderRadius: '2px',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                }} />
+                }} onClick={(e) => handleOtherClick(e, { id: data.rels.father!, gender: 'M' })}/>
               }
             </div>
             <div style={{position: 'relative', height: '0px'}}>
@@ -126,7 +145,7 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
                     backgroundColor: getGenderColor('F'),
                     borderRadius: '2px',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                  }} />
+                  }} onClick={(e) => handleOtherClick(e, { id: data.rels.mother!, gender: 'F' })}/>
                 }
             </div>
           </div>
@@ -144,24 +163,7 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({ data, onClick, visibleNo
               alignItems: 'center',
               flexDirection: marriage.gender === 'M' ? 'row-reverse' : 'row',
               gap: '0px'
-            }} onClick={(e) => {
-              e.stopPropagation();
-              // Create a minimal PersonData object for the spouse to trigger navigation
-              const spousePersonData: PersonData = {
-                id: marriage.id,
-                rels: { marriages: [], children: [], siblings: [] },
-                data: {
-                  first_name: '',
-                  middle_name: '',
-                  last_name: '',
-                  birth_date: '',
-                  death_date: '',
-                  avatar: '',
-                  gender: marriage.gender
-                }
-              };
-              onClick(e, spousePersonData);
-            }}>
+            }} onClick={(e) => handleOtherClick(e, { id: marriage.id, gender: marriage.gender })}>
               <div style={{ width: '8px', height: '2px', backgroundColor: '#ccc' }}></div>
               <div className="missing-marriage-indicator" style={{
                 width: '20px',
