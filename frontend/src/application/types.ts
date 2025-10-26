@@ -24,6 +24,141 @@ export interface PersonData {
   };
 }
 
+// Detailed person data from the API
+export interface DetailedPersonData {
+  id: number;
+  name?: {
+    first_name: string;
+    middle_name: string;
+    last_name: string;
+    name_type: string | null;
+  };
+  names: Array<{
+    first_name: string;
+    middle_name: string;
+    last_name: string;
+    name_type: string | null;
+  }>;
+  gender: 'M' | 'F' | 'U';
+  is_living: boolean;
+  birth?: {
+    id: number;
+    date: string;
+    location: string;
+    comment: string;
+  };
+  death?: {
+    id: number;
+    date: string;
+    location: string;
+    cause: string;
+    comment: string;
+  };
+  marriages: Array<{
+    id: number;
+    date: string;
+    location: string;
+    comment: string;
+    ended: boolean;
+    other_person: {
+      id: number;
+      name?: {
+        first_name: string;
+        middle_name: string;
+        last_name: string;
+      };
+      names: Array<{
+        first_name: string;
+        middle_name: string;
+        last_name: string;
+      }>;
+      gender: 'M' | 'F' | 'U';
+      url: string;
+    };
+  }>;
+  divorces: Array<{
+    id: number;
+    date: string;
+    location: string;
+    comment: string;
+    other_person: {
+      id: number;
+      name?: {
+        first_name: string;
+        middle_name: string;
+        last_name: string;
+      };
+      names: Array<{
+        first_name: string;
+        middle_name: string;
+        last_name: string;
+      }>;
+      gender: 'M' | 'F' | 'U';
+      url: string;
+    };
+  }>;
+  immigrations: Array<{
+    id: number;
+    date: string;
+    from_country: string;
+    to_country: string;
+    location: string;
+    comment: string;
+  }>;
+  citizenships: Array<{
+    id: number;
+    date: string;
+    country: string;
+    location: string;
+    comment: string;
+  }>;
+  parents: Array<{
+    id: number;
+    name?: {
+      first_name: string;
+      middle_name: string;
+      last_name: string;
+    };
+    names: Array<{
+      first_name: string;
+      middle_name: string;
+      last_name: string;
+    }>;
+    gender: 'M' | 'F' | 'U';
+    url: string;
+  }>;
+  children: Array<{
+    id: number;
+    name?: {
+      first_name: string;
+      middle_name: string;
+      last_name: string;
+    };
+    names: Array<{
+      first_name: string;
+      middle_name: string;
+      last_name: string;
+    }>;
+    gender: 'M' | 'F' | 'U';
+    url: string;
+  }>;
+  siblings: Array<{
+    id: number;
+    name?: {
+      first_name: string;
+      middle_name: string;
+      last_name: string;
+    };
+    names: Array<{
+      first_name: string;
+      middle_name: string;
+      last_name: string;
+    }>;
+    gender: 'M' | 'F' | 'U';
+    url: string;
+  }>;
+}
+
 export interface RawPersonData {
   id: number;
   name?: {

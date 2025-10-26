@@ -145,6 +145,41 @@ class ParentChildRelationshipInline(admin.TabularInline):
     verbose_name = "Parent"
     verbose_name_plural = "Parents"
 
+    def get_extra(self, request, obj=None, **kwargs):
+        """Add extra forms if we have parents to prepopulate"""
+        if obj is None and hasattr(self, '_prepopulate_parents') and self._prepopulate_parents:
+            parent_ids = [pid.strip() for pid in self._prepopulate_parents.split(',') if pid.strip()]
+            return len(parent_ids)
+        return 0
+
+    def get_formset(self, request, obj=None, **kwargs):
+        """Prepopulate parent relationships from URL parameter"""
+        formset = super().get_formset(request, obj, **kwargs)
+
+        if obj is None and hasattr(self, '_prepopulate_parents') and self._prepopulate_parents:
+            parent_ids = [pid.strip() for pid in self._prepopulate_parents.split(',') if pid.strip()]
+
+            # Create initial data for each parent
+            initial = []
+            for parent_id in parent_ids:
+                try:
+                    parent = Person.objects.get(pk=parent_id)
+                    initial.append({'parent': parent})
+                except Person.DoesNotExist:
+                    pass
+
+            formset.__init__ = self._wrap_init(formset.__init__, initial)
+
+        return formset
+
+    @staticmethod
+    def _wrap_init(original_init, initial_data):
+        """Wrap formset __init__ to add initial data"""
+        def new_init(self, *args, **kwargs):
+            kwargs['initial'] = initial_data
+            original_init(self, *args, **kwargs)
+        return new_init
+
 class ChildRelationshipInline(admin.TabularInline):
     model = ParentChildRelationship
     fk_name = 'parent'
@@ -152,6 +187,41 @@ class ChildRelationshipInline(admin.TabularInline):
     fields = ('child',)
     verbose_name = "Child"
     verbose_name_plural = "Children"
+
+    def get_extra(self, request, obj=None, **kwargs):
+        """Add extra forms if we have children to prepopulate"""
+        if obj is None and hasattr(self, '_prepopulate_children') and self._prepopulate_children:
+            child_ids = [cid.strip() for cid in self._prepopulate_children.split(',') if cid.strip()]
+            return len(child_ids)
+        return 0
+
+    def get_formset(self, request, obj=None, **kwargs):
+        """Prepopulate child relationships from URL parameter"""
+        formset = super().get_formset(request, obj, **kwargs)
+
+        if obj is None and hasattr(self, '_prepopulate_children') and self._prepopulate_children:
+            child_ids = [cid.strip() for cid in self._prepopulate_children.split(',') if cid.strip()]
+
+            # Create initial data for each child
+            initial = []
+            for child_id in child_ids:
+                try:
+                    child = Person.objects.get(pk=child_id)
+                    initial.append({'child': child})
+                except Person.DoesNotExist:
+                    pass
+
+            formset.__init__ = self._wrap_init(formset.__init__, initial)
+
+        return formset
+
+    @staticmethod
+    def _wrap_init(original_init, initial_data):
+        """Wrap formset __init__ to add initial data"""
+        def new_init(self, *args, **kwargs):
+            kwargs['initial'] = initial_data
+            original_init(self, *args, **kwargs)
+        return new_init
 
 class BirthEventInline(admin.TabularInline):
     model = BirthEvent
@@ -226,6 +296,40 @@ class PersonAdmin(admin.ModelAdmin):
     ordering_fields = ('birthevents__date', 'deathevents__date')
     ordering = ['-birthevents__date']  # Sort by birth date, newest to oldest
     fields = ('gender',)
+
+    def get_formset(self, request, obj=None, **kwargs):
+        """Override to prepopulate relationships from URL parameters"""
+        formset_class = super().get_formset(request, obj, **kwargs)
+
+        # Only prepopulate on add, not on change
+        if obj is None and hasattr(formset_class, 'form'):
+            # Get URL parameters
+            parents_param = request.GET.get('parents', '')
+            children_param = request.GET.get('children', '')
+
+            # Store in formset class for use in get_extra
+            formset_class._prepopulate_parents = parents_param
+            formset_class._prepopulate_children = children_param
+
+        return formset_class
+
+    def get_inline_instances(self, request, obj=None):
+        """Override to prepopulate inline formsets from URL parameters"""
+        inline_instances = super().get_inline_instances(request, obj)
+
+        # Only prepopulate on add, not on change
+        if obj is None:
+            parents_param = request.GET.get('parents', '')
+            children_param = request.GET.get('children', '')
+
+            for inline_instance in inline_instances:
+                # Store prepopulate data in inline instance
+                if isinstance(inline_instance, ParentChildRelationshipInline):
+                    inline_instance._prepopulate_parents = parents_param
+                elif isinstance(inline_instance, ChildRelationshipInline):
+                    inline_instance._prepopulate_children = children_param
+
+        return inline_instances
 
     def get_first_name(self, obj):
         return obj.name.first_name

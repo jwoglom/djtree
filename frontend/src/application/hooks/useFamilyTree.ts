@@ -13,6 +13,7 @@ export const useFamilyTree = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<PersonData[]>([]);
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const isTreeSetup = useRef(false);
 
   console.log('useFamilyTree hook called');
@@ -36,6 +37,24 @@ export const useFamilyTree = () => {
 
     fetchData();
   }, []);
+
+  // Update selected person ID when URL param changes
+  useEffect(() => {
+    const personId = searchParams.get('person_id');
+    setSelectedPersonId(personId);
+  }, [searchParams]);
+
+  // Trigger resize when panel opens/closes to reflow the tree
+  useEffect(() => {
+    if (!isTreeSetup.current) return;
+
+    // Small delay to allow the DOM to update first
+    const timeoutId = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [selectedPersonId]);
 
   // Set up tree when data is ready and DOM element exists
   useEffect(() => {
@@ -198,6 +217,7 @@ export const useFamilyTree = () => {
         
         const onCardClick = (e: any, d: PersonData) => {
           updateMainId(d.id);
+          setSelectedPersonId(d.id);
         };
         
         // Handle window resize
@@ -250,5 +270,5 @@ export const useFamilyTree = () => {
     };
   }, [isLoading, data]);
 
-  return { treeRef, isLoading };
+  return { treeRef, isLoading, selectedPersonId, setSelectedPersonId };
 }; 

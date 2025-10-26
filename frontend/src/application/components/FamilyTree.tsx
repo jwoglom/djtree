@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import { useFamilyTree } from '../hooks/useFamilyTree';
+import { PersonDetailPanel } from './PersonDetailPanel';
 
 export const FamilyTree: React.FC = () => {
   console.log('FamilyTree component rendering');
-  const { treeRef, isLoading } = useFamilyTree();
+  const { treeRef, isLoading, selectedPersonId, setSelectedPersonId } = useFamilyTree();
   
   console.log('FamilyTree hook result:', { isLoading });
   console.log('treeRef in FamilyTree:', treeRef);
@@ -33,25 +34,33 @@ export const FamilyTree: React.FC = () => {
   console.log('Rendering family tree');
   return (
     <div style={{
-      width: '100%', 
-      height: '100vh', 
-      position: 'relative',
+      width: '100%',
+      height: '100vh',
+      display: 'flex',
       backgroundColor: '#333',
-      color: '#fff'
+      color: '#fff',
+      overflow: 'hidden',
     }}>
-      <div 
-        ref={treeRef} 
-        id="tree" 
+      <div
+        ref={treeRef}
+        id="tree"
         className="f3"
         style={{
-          width: '100%', 
-          height: '100%', 
-          position: 'absolute', 
-          top: 0, 
-          left: 0,
-          backgroundColor: '#333'
+          flex: selectedPersonId ? '1' : '1',
+          width: selectedPersonId ? 'calc(100% - 400px)' : '100%',
+          height: '100%',
+          backgroundColor: '#333',
+          transition: 'width 0.3s ease',
+          overflow: 'hidden',
+          position: 'relative',
         }}
       />
+      {selectedPersonId && (
+        <PersonDetailPanel
+          personId={selectedPersonId}
+          onClose={() => setSelectedPersonId(null)}
+        />
+      )}
     </div>
   );
 }; 
