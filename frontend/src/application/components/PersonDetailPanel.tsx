@@ -6,9 +6,10 @@ interface PersonDetailPanelProps {
   personId: string | null;
   onClose: () => void;
   onNavigateToPerson: (personId: string) => void;
+  onOpenAdminModal: (url: string) => void;
 }
 
-export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, onClose, onNavigateToPerson }) => {
+export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, onClose, onNavigateToPerson, onOpenAdminModal }) => {
   const [person, setPerson] = useState<DetailedPersonData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +52,16 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
 
   const handlePersonClick = (personId: number) => {
     onNavigateToPerson(String(personId));
+  };
+
+  const handleEditClick = (e: React.MouseEvent, url: string) => {
+    e.preventDefault();
+    onOpenAdminModal(url);
+  };
+
+  const handleAddClick = (e: React.MouseEvent, url: string) => {
+    e.preventDefault();
+    onOpenAdminModal(url);
   };
 
   return (
@@ -405,8 +416,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <a
                   href={`/admin/person/person/add/?children=${person.id}`}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={(e) => handleAddClick(e, `/admin/person/person/add/?children=${person.id}`)}
                   style={{
                     color: '#789fac',
                     textDecoration: 'none',
@@ -414,14 +424,14 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
                     display: 'flex',
                     alignItems: 'center',
                     gap: '5px',
+                    cursor: 'pointer',
                   }}
                 >
                   + Add parent
                 </a>
                 <a
                   href={`/admin/person/person/add/?${person.parents && person.parents.length > 0 ? `parents=${person.parents.map(p => p.id).join(',')}` : ''}`}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={(e) => handleAddClick(e, `/admin/person/person/add/?${person.parents && person.parents.length > 0 ? `parents=${person.parents.map(p => p.id).join(',')}` : ''}`)}
                   style={{
                     color: '#789fac',
                     textDecoration: 'none',
@@ -429,14 +439,14 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
                     display: 'flex',
                     alignItems: 'center',
                     gap: '5px',
+                    cursor: 'pointer',
                   }}
                 >
                   + Add sibling
                 </a>
                 <a
                   href={`/admin/person/person/add/?spouse=${person.id}`}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={(e) => handleAddClick(e, `/admin/person/person/add/?spouse=${person.id}`)}
                   style={{
                     color: '#789fac',
                     textDecoration: 'none',
@@ -444,14 +454,14 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
                     display: 'flex',
                     alignItems: 'center',
                     gap: '5px',
+                    cursor: 'pointer',
                   }}
                 >
                   + Add spouse
                 </a>
                 <a
                   href={`/admin/person/person/add/?parents=${person.id}`}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={(e) => handleAddClick(e, `/admin/person/person/add/?parents=${person.id}`)}
                   style={{
                     color: '#789fac',
                     textDecoration: 'none',
@@ -459,6 +469,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
                     display: 'flex',
                     alignItems: 'center',
                     gap: '5px',
+                    cursor: 'pointer',
                   }}
                 >
                   + Add child
@@ -470,8 +481,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
             <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #444' }}>
               <a
                 href={`/admin/person/person/${person.id}/change/`}
-                target="_blank"
-                rel="noreferrer"
+                onClick={(e) => handleEditClick(e, `/admin/person/person/${person.id}/change/`)}
                 style={{
                   color: '#789fac',
                   textDecoration: 'none',
@@ -479,6 +489,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
                   display: 'flex',
                   alignItems: 'center',
                   gap: '5px',
+                  cursor: 'pointer',
                 }}
               >
                 ✎ Edit person details

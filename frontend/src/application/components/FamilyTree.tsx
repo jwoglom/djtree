@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useFamilyTree } from '../hooks/useFamilyTree';
 import { PersonDetailPanel } from './PersonDetailPanel';
+import { AdminModal } from './AdminModal';
 
 export const FamilyTree: React.FC = () => {
   console.log('FamilyTree component rendering');
-  const { treeRef, isLoading, selectedPersonId, setSelectedPersonId, navigateToPerson } = useFamilyTree();
+  const [adminModalUrl, setAdminModalUrl] = useState<string | null>(null);
+  const { treeRef, isLoading, selectedPersonId, setSelectedPersonId, navigateToPerson } = useFamilyTree(setAdminModalUrl);
   
   console.log('FamilyTree hook result:', { isLoading });
   console.log('treeRef in FamilyTree:', treeRef);
@@ -60,6 +62,15 @@ export const FamilyTree: React.FC = () => {
           personId={selectedPersonId}
           onClose={() => setSelectedPersonId(null)}
           onNavigateToPerson={navigateToPerson}
+          onOpenAdminModal={setAdminModalUrl}
+        />
+      )}
+
+      {/* Admin Modal */}
+      {adminModalUrl && (
+        <AdminModal
+          url={adminModalUrl}
+          onClose={() => setAdminModalUrl(null)}
         />
       )}
     </div>

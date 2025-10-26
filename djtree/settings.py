@@ -53,6 +53,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# Allow Django admin to be displayed in iframe from same origin
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 ROOT_URLCONF = 'djtree.urls'
 
 TEMPLATES = [
