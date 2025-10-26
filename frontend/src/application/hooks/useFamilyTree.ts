@@ -15,6 +15,7 @@ export const useFamilyTree = () => {
   const [data, setData] = useState<PersonData[]>([]);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const isTreeSetup = useRef(false);
+  const updateMainIdRef = useRef<((id: string) => void) | null>(null);
 
   console.log('useFamilyTree hook called');
 
@@ -214,6 +215,9 @@ export const useFamilyTree = () => {
           store.updateTree({ initial: false });
           setSearchParams({ person_id: _main_id });
         };
+
+        // Expose updateMainId via ref
+        updateMainIdRef.current = updateMainId;
         
         const onCardClick = (e: any, d: PersonData) => {
           updateMainId(d.id);
@@ -270,5 +274,12 @@ export const useFamilyTree = () => {
     };
   }, [isLoading, data]);
 
-  return { treeRef, isLoading, selectedPersonId, setSelectedPersonId };
+  const navigateToPerson = (personId: string) => {
+    if (updateMainIdRef.current) {
+      updateMainIdRef.current(personId);
+      setSelectedPersonId(personId);
+    }
+  };
+
+  return { treeRef, isLoading, selectedPersonId, setSelectedPersonId, navigateToPerson };
 }; 

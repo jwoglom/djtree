@@ -4,7 +4,7 @@ import { PersonDetailPanel } from './PersonDetailPanel';
 
 export const FamilyTree: React.FC = () => {
   console.log('FamilyTree component rendering');
-  const { treeRef, isLoading, selectedPersonId, setSelectedPersonId } = useFamilyTree();
+  const { treeRef, isLoading, selectedPersonId, setSelectedPersonId, navigateToPerson } = useFamilyTree();
   
   console.log('FamilyTree hook result:', { isLoading });
   console.log('treeRef in FamilyTree:', treeRef);
@@ -59,6 +59,7 @@ export const FamilyTree: React.FC = () => {
         <PersonDetailPanel
           personId={selectedPersonId}
           onClose={() => setSelectedPersonId(null)}
+          onNavigateToPerson={navigateToPerson}
         />
       )}
     </div>

@@ -5,9 +5,10 @@ import { getGenderIcon, getGenderColor, getGenderLabel } from '../utils/gender';
 interface PersonDetailPanelProps {
   personId: string | null;
   onClose: () => void;
+  onNavigateToPerson: (personId: string) => void;
 }
 
-export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, onClose }) => {
+export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, onClose, onNavigateToPerson }) => {
   const [person, setPerson] = useState<DetailedPersonData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +47,10 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
   const getFullName = (nameObj?: { first_name: string; middle_name: string; last_name: string }) => {
     if (!nameObj) return 'Unknown';
     return `${nameObj.first_name} ${nameObj.middle_name} ${nameObj.last_name}`.trim();
+  };
+
+  const handlePersonClick = (personId: number) => {
+    onNavigateToPerson(String(personId));
   };
 
   return (
@@ -239,10 +244,19 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
                   Marriages ({person.marriages.length})
                 </h3>
                 <div style={{ paddingLeft: '10px' }}>
-                  {person.marriages.map((marriage, index) => (
+                  {person.marriages.map((marriage) => (
                     <div key={marriage.id} style={{ marginBottom: '12px' }}>
                       <div style={{ fontSize: '14px' }}>
-                        • {getFullName(marriage.other_person.name)} ({getGenderLabel(marriage.other_person.gender)})
+                        • <span
+                          onClick={() => handlePersonClick(marriage.other_person.id)}
+                          style={{
+                            color: '#789fac',
+                            cursor: 'pointer',
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          {getFullName(marriage.other_person.name)}
+                        </span> ({getGenderLabel(marriage.other_person.gender)})
                         {marriage.ended && <span style={{ color: '#ff8888', marginLeft: '8px' }}>(Ended)</span>}
                       </div>
                       {marriage.date && (
@@ -320,7 +334,16 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
                     <div style={{ color: '#999', fontSize: '14px', marginBottom: '5px' }}>Parents:</div>
                     {person.parents.map((parent) => (
                       <div key={parent.id} style={{ fontSize: '14px', marginLeft: '10px' }}>
-                        • {getFullName(parent.name)} ({getGenderLabel(parent.gender)})
+                        • <span
+                          onClick={() => handlePersonClick(parent.id)}
+                          style={{
+                            color: '#789fac',
+                            cursor: 'pointer',
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          {getFullName(parent.name)}
+                        </span> ({getGenderLabel(parent.gender)})
                       </div>
                     ))}
                   </div>
@@ -334,7 +357,16 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
                     </div>
                     {person.children.map((child) => (
                       <div key={child.id} style={{ fontSize: '14px', marginLeft: '10px' }}>
-                        • {getFullName(child.name)} ({getGenderLabel(child.gender)})
+                        • <span
+                          onClick={() => handlePersonClick(child.id)}
+                          style={{
+                            color: '#789fac',
+                            cursor: 'pointer',
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          {getFullName(child.name)}
+                        </span> ({getGenderLabel(child.gender)})
                       </div>
                     ))}
                   </div>
@@ -348,7 +380,16 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
                     </div>
                     {person.siblings.map((sibling) => (
                       <div key={sibling.id} style={{ fontSize: '14px', marginLeft: '10px' }}>
-                        • {getFullName(sibling.name)} ({getGenderLabel(sibling.gender)})
+                        • <span
+                          onClick={() => handlePersonClick(sibling.id)}
+                          style={{
+                            color: '#789fac',
+                            cursor: 'pointer',
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          {getFullName(sibling.name)}
+                        </span> ({getGenderLabel(sibling.gender)})
                       </div>
                     ))}
                   </div>
@@ -391,6 +432,21 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
                   }}
                 >
                   + Add sibling
+                </a>
+                <a
+                  href={`/admin/person/person/add/?spouse=${person.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    color: '#789fac',
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  + Add spouse
                 </a>
                 <a
                   href={`/admin/person/person/add/?parents=${person.id}`}

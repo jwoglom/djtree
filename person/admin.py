@@ -244,6 +244,36 @@ class MarriageEventInline(admin.TabularInline):
     fields = ('date', 'other_person', 'location', 'comment', 'ended')
     fk_name = 'person'
 
+    def get_extra(self, request, obj=None, **kwargs):
+        """Add extra form if we have a spouse to prepopulate"""
+        if obj is None and hasattr(self, '_prepopulate_spouse') and self._prepopulate_spouse:
+            return 1
+        return 0
+
+    def get_formset(self, request, obj=None, **kwargs):
+        """Prepopulate spouse (marriage) from URL parameter"""
+        formset = super().get_formset(request, obj, **kwargs)
+
+        if obj is None and hasattr(self, '_prepopulate_spouse') and self._prepopulate_spouse:
+            spouse_id = self._prepopulate_spouse.strip()
+
+            try:
+                spouse = Person.objects.get(pk=spouse_id)
+                initial = [{'other_person': spouse}]
+                formset.__init__ = self._wrap_init(formset.__init__, initial)
+            except Person.DoesNotExist:
+                pass
+
+        return formset
+
+    @staticmethod
+    def _wrap_init(original_init, initial_data):
+        """Wrap formset __init__ to add initial data"""
+        def new_init(self, *args, **kwargs):
+            kwargs['initial'] = initial_data
+            original_init(self, *args, **kwargs)
+        return new_init
+
 class DivorceEventInline(admin.TabularInline):
     model = DivorceEvent
     form = EventForm
@@ -321,6 +351,7 @@ class PersonAdmin(admin.ModelAdmin):
         if obj is None:
             parents_param = request.GET.get('parents', '')
             children_param = request.GET.get('children', '')
+            spouse_param = request.GET.get('spouse', '')
 
             for inline_instance in inline_instances:
                 # Store prepopulate data in inline instance
@@ -328,6 +359,8 @@ class PersonAdmin(admin.ModelAdmin):
                     inline_instance._prepopulate_parents = parents_param
                 elif isinstance(inline_instance, ChildRelationshipInline):
                     inline_instance._prepopulate_children = children_param
+                elif isinstance(inline_instance, MarriageEventInline):
+                    inline_instance._prepopulate_spouse = spouse_param
 
         return inline_instances
 
