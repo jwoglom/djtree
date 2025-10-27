@@ -6,7 +6,7 @@ import { AdminModal } from './AdminModal';
 export const FamilyTree: React.FC = () => {
   console.log('FamilyTree component rendering');
   const [adminModalUrl, setAdminModalUrl] = useState<string | null>(null);
-  const { treeRef, isLoading, selectedPersonId, setSelectedPersonId, navigateToPerson } = useFamilyTree(setAdminModalUrl);
+  const { treeRef, isLoading, selectedPersonId, setSelectedPersonId, navigateToPerson, refreshData } = useFamilyTree(setAdminModalUrl);
   
   console.log('FamilyTree hook result:', { isLoading });
   console.log('treeRef in FamilyTree:', treeRef);
@@ -15,6 +15,11 @@ export const FamilyTree: React.FC = () => {
   useEffect(() => {
     console.log('FamilyTree useEffect - treeRef.current:', treeRef.current);
   }, [treeRef.current]);
+
+  const handleModalClose = () => {
+    setAdminModalUrl(null);
+    refreshData();
+  };
 
   if (isLoading) {
     console.log('Showing loading state');
@@ -70,7 +75,7 @@ export const FamilyTree: React.FC = () => {
       {adminModalUrl && (
         <AdminModal
           url={adminModalUrl}
-          onClose={() => setAdminModalUrl(null)}
+          onClose={handleModalClose}
         />
       )}
     </div>

@@ -144,6 +144,7 @@ class ParentChildRelationshipInline(admin.TabularInline):
     fields = ('parent',)
     verbose_name = "Parent"
     verbose_name_plural = "Parents"
+    autocomplete_fields = ['parent']
 
     def get_extra(self, request, obj=None, **kwargs):
         """Add extra forms if we have parents to prepopulate"""
@@ -152,33 +153,28 @@ class ParentChildRelationshipInline(admin.TabularInline):
             return len(parent_ids)
         return 0
 
-    def get_formset(self, request, obj=None, **kwargs):
-        """Prepopulate parent relationships from URL parameter"""
-        formset = super().get_formset(request, obj, **kwargs)
+    def get_formset_kwargs(self, request, obj, **kwargs):
+        """Pass initial data when formset is instantiated"""
+        kwargs = super().get_formset_kwargs(request, obj, **kwargs)
 
-        if obj is None and hasattr(self, '_prepopulate_parents') and self._prepopulate_parents:
-            parent_ids = [pid.strip() for pid in self._prepopulate_parents.split(',') if pid.strip()]
+        if obj is None:
+            # Read directly from request.GET
+            parents_param = request.GET.get('parents', '')
+            if parents_param:
+                parent_ids = [pid.strip() for pid in parents_param.split(',') if pid.strip()]
 
-            # Create initial data for each parent
-            initial = []
-            for parent_id in parent_ids:
-                try:
-                    parent = Person.objects.get(pk=parent_id)
-                    initial.append({'parent': parent})
-                except Person.DoesNotExist:
-                    pass
+                # Create initial data for each parent
+                initial = []
+                for parent_id in parent_ids:
+                    try:
+                        parent = Person.objects.get(pk=parent_id)
+                        initial.append({'parent': parent})
+                    except Person.DoesNotExist:
+                        pass
 
-            formset.__init__ = self._wrap_init(formset.__init__, initial)
+                kwargs['initial'] = initial
 
-        return formset
-
-    @staticmethod
-    def _wrap_init(original_init, initial_data):
-        """Wrap formset __init__ to add initial data"""
-        def new_init(self, *args, **kwargs):
-            kwargs['initial'] = initial_data
-            original_init(self, *args, **kwargs)
-        return new_init
+        return kwargs
 
 class ChildRelationshipInline(admin.TabularInline):
     model = ParentChildRelationship
@@ -187,6 +183,7 @@ class ChildRelationshipInline(admin.TabularInline):
     fields = ('child',)
     verbose_name = "Child"
     verbose_name_plural = "Children"
+    autocomplete_fields = ['child']
 
     def get_extra(self, request, obj=None, **kwargs):
         """Add extra forms if we have children to prepopulate"""
@@ -195,9 +192,9 @@ class ChildRelationshipInline(admin.TabularInline):
             return len(child_ids)
         return 0
 
-    def get_formset(self, request, obj=None, **kwargs):
-        """Prepopulate child relationships from URL parameter"""
-        formset = super().get_formset(request, obj, **kwargs)
+    def get_formset_kwargs(self, request, obj, **kwargs):
+        """Pass initial data when formset is instantiated"""
+        kwargs = super().get_formset_kwargs(request, obj, **kwargs)
 
         if obj is None and hasattr(self, '_prepopulate_children') and self._prepopulate_children:
             child_ids = [cid.strip() for cid in self._prepopulate_children.split(',') if cid.strip()]
@@ -211,17 +208,9 @@ class ChildRelationshipInline(admin.TabularInline):
                 except Person.DoesNotExist:
                     pass
 
-            formset.__init__ = self._wrap_init(formset.__init__, initial)
+            kwargs['initial'] = initial
 
-        return formset
-
-    @staticmethod
-    def _wrap_init(original_init, initial_data):
-        """Wrap formset __init__ to add initial data"""
-        def new_init(self, *args, **kwargs):
-            kwargs['initial'] = initial_data
-            original_init(self, *args, **kwargs)
-        return new_init
+        return kwargs
 
 class BirthEventInline(admin.TabularInline):
     model = BirthEvent
@@ -243,6 +232,7 @@ class MarriageEventInline(admin.TabularInline):
     extra = 0
     fields = ('date', 'other_person', 'location', 'comment', 'ended')
     fk_name = 'person'
+    autocomplete_fields = ['other_person']
 
     def get_extra(self, request, obj=None, **kwargs):
         """Add extra form if we have a spouse to prepopulate"""
@@ -250,29 +240,20 @@ class MarriageEventInline(admin.TabularInline):
             return 1
         return 0
 
-    def get_formset(self, request, obj=None, **kwargs):
-        """Prepopulate spouse (marriage) from URL parameter"""
-        formset = super().get_formset(request, obj, **kwargs)
+    def get_formset_kwargs(self, request, obj, **kwargs):
+        """Pass initial data when formset is instantiated"""
+        kwargs = super().get_formset_kwargs(request, obj, **kwargs)
 
         if obj is None and hasattr(self, '_prepopulate_spouse') and self._prepopulate_spouse:
             spouse_id = self._prepopulate_spouse.strip()
 
             try:
                 spouse = Person.objects.get(pk=spouse_id)
-                initial = [{'other_person': spouse}]
-                formset.__init__ = self._wrap_init(formset.__init__, initial)
+                kwargs['initial'] = [{'other_person': spouse}]
             except Person.DoesNotExist:
                 pass
 
-        return formset
-
-    @staticmethod
-    def _wrap_init(original_init, initial_data):
-        """Wrap formset __init__ to add initial data"""
-        def new_init(self, *args, **kwargs):
-            kwargs['initial'] = initial_data
-            original_init(self, *args, **kwargs)
-        return new_init
+        return kwargs
 
 class DivorceEventInline(admin.TabularInline):
     model = DivorceEvent
@@ -280,6 +261,7 @@ class DivorceEventInline(admin.TabularInline):
     extra = 0
     fields = ('date', 'other_person', 'location', 'comment')
     fk_name = 'person'
+    autocomplete_fields = ['other_person']
 
 class ImmigrationEventInline(admin.TabularInline):
     model = ImmigrationEvent
@@ -322,7 +304,7 @@ class PersonAdmin(admin.ModelAdmin):
     list_display = ('get_first_name', 'get_middle_name', 'get_last_name', 'gender', 'is_living', 'get_birth_date', 'get_death_date')
     list_display_links = ('get_first_name', 'get_middle_name', 'get_last_name')
     list_filter = ('gender', 'is_living', LastNameFilter)
-    search_fields = ('names__first_name', 'names__middle_name', 'names__last_name')
+    search_fields = ['names__first_name', 'names__middle_name', 'names__last_name']
     ordering_fields = ('birthevents__date', 'deathevents__date')
     ordering = ['-birthevents__date']  # Sort by birth date, newest to oldest
     fields = ('gender',)

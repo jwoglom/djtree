@@ -8,6 +8,7 @@ django = "*"
 python-webpack-boilerplate = "*"
 djangorestframework = "*"
 django-file-form = "*"
+django-selectize = "*"
 
 [dev-packages]
 ptpython = "*"

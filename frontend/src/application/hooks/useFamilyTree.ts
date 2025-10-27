@@ -16,26 +16,29 @@ export const useFamilyTree = (onOpenAdminModal?: (url: string) => void) => {
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const isTreeSetup = useRef(false);
   const updateMainIdRef = useRef<((id: string) => void) | null>(null);
+  const storeRef = useRef<any>(null);
+  const updateTreeRef = useRef<((props?: any) => void) | null>(null);
 
   console.log('useFamilyTree hook called');
 
-  // Fetch data first
-  useEffect(() => {
-    const fetchData = async () => {
-      console.log('Fetching data...');
-      try {
-        const response = await fetch('/api/people/');
-        const rawData = await response.json();
-        const translatedData = translateData(rawData);
-        setData(translatedData);
-        setIsLoading(false);
-        console.log('Data fetched and translated:', translatedData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setIsLoading(false);
-      }
-    };
+  // Fetch data function
+  const fetchData = async () => {
+    console.log('Fetching data...');
+    try {
+      const response = await fetch('/api/people/');
+      const rawData = await response.json();
+      const translatedData = translateData(rawData);
+      setData(translatedData);
+      setIsLoading(false);
+      console.log('Data fetched and translated:', translatedData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setIsLoading(false);
+    }
+  };
 
+  // Fetch data on mount
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -120,8 +123,8 @@ export const useFamilyTree = (onOpenAdminModal?: (url: string) => void) => {
           updateChildren(node);
         };
         
-        store = f3.createStore({ 
-          data, 
+        store = f3.createStore({
+          data,
           node_separation: WIDTH_PX * 1.25,
           level_separation: HEIGHT_PX * 1.5,
           show_siblings_of_main: true,
@@ -133,6 +136,7 @@ export const useFamilyTree = (onOpenAdminModal?: (url: string) => void) => {
           sortChildrenFunction: (a: any, b: any) => a.birth_date - b.birth_date,
           sortSpousesFunction: (a: any, b: any) => a.birth_date - b.birth_date,
         });
+        storeRef.current = store;
         console.log('Store created:', store);
         
         if (data && data.length > 0) {
@@ -189,18 +193,18 @@ export const useFamilyTree = (onOpenAdminModal?: (url: string) => void) => {
             console.warn('Store is undefined, skipping update');
             return;
           }
-          
+
           // Clear the roots Map before updating to avoid stale references
           roots.clear();
-          
+
           tree = store.getTree();
           console.log('Tree from store:', tree);
           if (!tree || !tree.data) {
             console.warn('Tree or tree.data is undefined, skipping update');
             return;
           }
-          
-          props = Object.assign({}, props || {}, { 
+
+          props = Object.assign({}, props || {}, {
             cardHtml: cardHtml.node(),
             card_dim: { w: 280, h: 80, text_x: 75, text_y: 15, img_w: 60, img_h: 60, img_x: 5, img_y: 5 },
             transition_time: 500
@@ -209,6 +213,7 @@ export const useFamilyTree = (onOpenAdminModal?: (url: string) => void) => {
           f3.view(tree, svg, Card(tree, svg), props || {});
           console.log('f3.view completed');
         };
+        updateTreeRef.current = updateTree;
         
         const updateMainId = (_main_id: any) => {
           main_id = _main_id;
@@ -282,5 +287,29 @@ export const useFamilyTree = (onOpenAdminModal?: (url: string) => void) => {
     }
   };
 
-  return { treeRef, isLoading, selectedPersonId, setSelectedPersonId, navigateToPerson };
+  const refreshData = async () => {
+    console.log('Refreshing data silently...');
+    try {
+      const response = await fetch('/api/people/');
+      const rawData = await response.json();
+      const translatedData = translateData(rawData);
+
+      // Update the store with new data if tree is already set up
+      if (storeRef.current && updateTreeRef.current) {
+        console.log('Updating store with new data');
+        // Update the store's data
+        storeRef.current.data = translatedData;
+        storeRef.current.updateTree({ initial: false, transition_time: 300 });
+        // Trigger a re-render
+        updateTreeRef.current({ initial: false, transition_time: 300 });
+      }
+
+      setData(translatedData);
+      console.log('Data refreshed:', translatedData);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+  };
+
+  return { treeRef, isLoading, selectedPersonId, setSelectedPersonId, navigateToPerson, refreshData };
 }; 

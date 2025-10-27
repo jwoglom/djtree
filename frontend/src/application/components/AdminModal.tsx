@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface AdminModalProps {
   url: string;
@@ -6,6 +6,8 @@ interface AdminModalProps {
 }
 
 export const AdminModal: React.FC<AdminModalProps> = ({ url, onClose }) => {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
   useEffect(() => {
     // Close modal on Escape key
     const handleEscape = (e: KeyboardEvent) => {
@@ -16,6 +18,77 @@ export const AdminModal: React.FC<AdminModalProps> = ({ url, onClose }) => {
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
+  useEffect(() => {
+    // Listen for Django admin popup close messages
+    const handleMessage = (event: MessageEvent) => {
+      // Check if the message is from Django admin popup
+      if (event.data && event.data.action === 'dismissPopup') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [onClose]);
+
+  useEffect(() => {
+    // Watch for Django admin popup response
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const checkForPopupResponse = () => {
+      try {
+        const iframeWindow = iframe.contentWindow;
+        const iframeDocument = iframeWindow?.document;
+        if (!iframeDocument) return;
+
+        // Look for the django-admin-popup-response-constants script tag
+        const observer = new MutationObserver((mutations) => {
+          for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+              if (node instanceof HTMLElement) {
+                // Check if it's the popup response script
+                if (node.id === 'django-admin-popup-response-constants') {
+                  console.log('Django popup response detected, closing modal');
+                  onClose();
+                  return;
+                }
+                // Also check descendants
+                const popupScript = node.querySelector?.('#django-admin-popup-response-constants');
+                if (popupScript) {
+                  console.log('Django popup response detected in descendants, closing modal');
+                  onClose();
+                  return;
+                }
+              }
+            }
+          }
+        });
+
+        // Observe the entire document for additions
+        observer.observe(iframeDocument, {
+          childList: true,
+          subtree: true
+        });
+
+        return () => observer.disconnect();
+      } catch (e) {
+        console.warn('Could not observe iframe:', e);
+      }
+    };
+
+    const setupObserver = () => {
+      const cleanup = checkForPopupResponse();
+      return cleanup;
+    };
+
+    iframe.addEventListener('load', setupObserver);
+
+    return () => {
+      iframe.removeEventListener('load', setupObserver);
+    };
   }, [onClose]);
 
   // Add ?_popup=1 to the URL for Django's popup mode
@@ -90,8 +163,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({ url, onClose }) => {
 
         {/* Iframe */}
         <iframe
+          ref={iframeRef}
           src={popupUrl}
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
           style={{
             flex: 1,
             border: 'none',

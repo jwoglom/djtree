@@ -459,21 +459,32 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
                 >
                   + Add spouse
                 </a>
-                <a
-                  href={`/admin/person/person/add/?parents=${person.id}`}
-                  onClick={(e) => handleAddClick(e, `/admin/person/person/add/?parents=${person.id}`)}
-                  style={{
-                    color: '#789fac',
-                    textDecoration: 'none',
-                    fontSize: '14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  + Add child
-                </a>
+                {(() => {
+                  // Find current spouse (non-ended marriage)
+                  const currentSpouse = person.marriages?.find(m => !m.ended);
+                  const parentsParam = currentSpouse
+                    ? `parents=${person.id},${currentSpouse.other_person.id}`
+                    : `parents=${person.id}`;
+                  const addChildUrl = `/admin/person/person/add/?${parentsParam}`;
+
+                  return (
+                    <a
+                      href={addChildUrl}
+                      onClick={(e) => handleAddClick(e, addChildUrl)}
+                      style={{
+                        color: '#789fac',
+                        textDecoration: 'none',
+                        fontSize: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      + Add child
+                    </a>
+                  );
+                })()}
               </div>
             </div>
 
