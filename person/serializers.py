@@ -93,11 +93,19 @@ class PersonSerializer(serializers.ModelSerializer):
     parents = MiniPersonSerializer(many=True, read_only=True)
     children = MiniPersonSerializer(many=True, read_only=True)
     siblings = MiniPersonSerializer(many=True, read_only=True)
+    attachment_count = serializers.SerializerMethodField()
+    attachment_folder_path = serializers.SerializerMethodField()
 
     def get_name(self, obj):
         name = obj.name
         return NameSerializer(name).data if name else None
-    
+
+    def get_attachment_count(self, obj):
+        return obj.attachments.count()
+
+    def get_attachment_folder_path(self, obj):
+        return obj.get_attachment_folder_path()
+
     class Meta:
         model = Person
         fields = [
@@ -105,7 +113,8 @@ class PersonSerializer(serializers.ModelSerializer):
             'birth', 'death',
             'marriages', 'divorces',
             'immigrations', 'citizenships',
-            'parents', 'children', 'siblings'
+            'parents', 'children', 'siblings',
+            'attachment_count', 'attachment_folder_path'
         ]
 
 class PersonViewSet(viewsets.ModelViewSet):

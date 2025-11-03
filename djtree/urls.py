@@ -15,16 +15,20 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.views.generic import TemplateView
 from person.serializers import router
+from person.views import person_media_view, upload_person_media
 from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
     path('', TemplateView.as_view(template_name="index.html")),
     path('api/', include(router.urls)),
+    path('api/people/<int:person_id>/upload/', upload_person_media, name='upload_person_media'),
     path('admin/', admin.site.urls),
+    # Person media directory index (must come before static files)
+    re_path(r'^media/people/(?P<path>.*)$', person_media_view, name='person_media'),
 ]
 
 # Serve media files during development

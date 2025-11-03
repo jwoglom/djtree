@@ -157,6 +157,8 @@ export interface DetailedPersonData {
     gender: 'M' | 'F' | 'U';
     url: string;
   }>;
+  attachment_count: number;
+  attachment_folder_path: string;
 }
 
 export interface RawPersonData {

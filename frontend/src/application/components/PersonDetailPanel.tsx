@@ -505,6 +505,23 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({ personId, 
               >
                 ✎ Edit person details
               </a>
+              <a
+                href={`/media/${person.attachment_folder_path}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#789fac',
+                  textDecoration: 'none',
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: 'pointer',
+                  marginTop: '8px',
+                }}
+              >
+                📁 View media ({person.attachment_count} {person.attachment_count === 1 ? 'file' : 'files'})
+              </a>
             </div>
           </>
         )}

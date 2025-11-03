@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media: {{ person_folder }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+        .breadcrumb {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+        .breadcrumb a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .person-info {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            border-left: 4px solid #3498db;
+        }
+        .person-info-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            font-size: 14px;
+        }
+        .person-info-item {
+            display: flex;
+            gap: 5px;
+        }
+        .person-info-label {
+            font-weight: 600;
+            color: #555;
+        }
+        .person-info-value {
+            color: #666;
+        }
+        .person-info-link {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .person-info-link:hover {
+            text-decoration: underline;
+        }
+        .upload-zone {
+            background-color: #fff;
+            border: 2px dashed #bdc3c7;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 20px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .upload-zone:hover {
+            border-color: #3498db;
+            background-color: #f8f9fa;
+        }
+        .upload-zone.drag-over {
+            border-color: #2ecc71;
+            background-color: #e8f8f5;
+            transform: scale(1.02);
+        }
+        .upload-zone-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .upload-zone-text {
+            font-size: 16px;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+        .upload-zone-subtext {
+            font-size: 13px;
+            color: #95a5a6;
+        }
+        .upload-progress {
+            margin-top: 10px;
+            height: 4px;
+            background-color: #ecf0f1;
+            border-radius: 2px;
+            overflow: hidden;
+            display: none;
+        }
+        .upload-progress-bar {
+            height: 100%;
+            background-color: #3498db;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .upload-status {
+            margin-top: 10px;
+            font-size: 14px;
+            display: none;
+        }
+        .upload-status.success {
+            color: #27ae60;
+        }
+        .upload-status.error {
+            color: #e74c3c;
+        }
+        .file-list {
+            background-color: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            border-bottom: 1px solid #ecf0f1;
+            text-decoration: none;
+            color: inherit;
+            transition: background-color 0.2s;
+        }
+        .file-item:hover {
+            background-color: #f8f9fa;
+        }
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        .file-icon {
+            font-size: 24px;
+            margin-right: 15px;
+            width: 30px;
+            text-align: center;
+        }
+        .file-info {
+            flex: 1;
+        }
+        .file-name {
+            font-size: 15px;
+            color: #2c3e50;
+        }
+        .file-item.directory .file-name {
+            font-weight: 500;
+            color: #3498db;
+        }
+        .file-size {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-left: auto;
+            padding-left: 20px;
+        }
+        .empty-message {
+            padding: 40px 20px;
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📁 {{ person_folder }}</h1>
+            <div class="breadcrumb">
+                <a href="/media/people/">Media Root</a>
+                {% for part in breadcrumb_parts %}
+                    / <a href="{{ part.path }}">{{ part.name }}</a>
+                {% endfor %}
+            </div>
+
+            {% if person %}
+            <div class="person-info">
+                <div class="person-info-row">
+                    <div class="person-info-item">
+                        <span class="person-info-label">Name:</span>
+                        <span class="person-info-value">{{ person.name }}</span>
+                    </div>
+                    {% if person.birth %}
+                    <div class="person-info-item">
+                        <span class="person-info-label">Birth:</span>
+                        <span class="person-info-value">{{ person.birth.date|default:"Unknown" }}</span>
+                    </div>
+                    {% endif %}
+                    {% if person.death %}
+                    <div class="person-info-item">
+                        <span class="person-info-label">Death:</span>
+                        <span class="person-info-value">{{ person.death.date|default:"Unknown" }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="person-info-item">
+                        <span class="person-info-label">•</span>
+                        <a href="/admin/person/person/{{ person.id }}/change/" class="person-info-link">Edit in Admin</a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </header>
+
+        {% if person_id %}
+        <div class="upload-zone" id="uploadZone">
+            <input type="file" id="fileInput" multiple style="display: none;">
+            <div class="upload-zone-icon">📤</div>
+            <div class="upload-zone-text">Drop files here to upload</div>
+            <div class="upload-zone-subtext">or click to select files</div>
+            <div class="upload-progress" id="uploadProgress">
+                <div class="upload-progress-bar" id="uploadProgressBar"></div>
+            </div>
+            <div class="upload-status" id="uploadStatus"></div>
+        </div>
+        {% endif %}
+
+        <div class="file-list">
+            {% if items %}
+                {% for item in items %}
+                    <a href="{{ item.path }}" class="file-item {% if item.is_dir %}directory{% endif %}">
+                        <div class="file-icon">
+                            {% if item.is_dir %}
+                                📁
+                            {% elif item.name|lower|slice:"-4:" == ".jpg" or item.name|lower|slice:"-5:" == ".jpeg" or item.name|lower|slice:"-4:" == ".png" or item.name|lower|slice:"-4:" == ".gif" or item.name|lower|slice:"-5:" == ".webp" %}
+                                🖼️
+                            {% elif item.name|lower|slice:"-4:" == ".pdf" %}
+                                📄
+                            {% elif item.name|lower|slice:"-4:" == ".mp4" or item.name|lower|slice:"-5:" == ".webm" or item.name|lower|slice:"-4:" == ".mov" %}
+                                🎥
+                            {% elif item.name|lower|slice:"-4:" == ".mp3" or item.name|lower|slice:"-4:" == ".wav" or item.name|lower|slice:"-4:" == ".ogg" %}
+                                🎵
+                            {% elif item.name|lower|slice:"-4:" == ".zip" or item.name|lower|slice:"-4:" == ".tar" or item.name|lower|slice:"-3:" == ".gz" %}
+                                📦
+                            {% elif item.name|lower|slice:"-4:" == ".txt" or item.name|lower|slice:"-3:" == ".md" %}
+                                📝
+                            {% else %}
+                                📄
+                            {% endif %}
+                        </div>
+                        <div class="file-info">
+                            <div class="file-name">{{ item.name }}</div>
+                        </div>
+                        {% if item.size is not None %}
+                            <div class="file-size">
+                                {% load humanize %}
+                                {{ item.size|filesizeformat }}
+                            </div>
+                        {% endif %}
+                    </a>
+                {% endfor %}
+            {% else %}
+                <div class="empty-message">
+                    This directory is empty
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if person_id %}
+    <script>
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const uploadProgressBar = document.getElementById('uploadProgressBar');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const personId = {{ person_id }};
+
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Highlight drop zone when item is dragged over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            uploadZone.classList.add('drag-over');
+        }
+
+        function unhighlight(e) {
+            uploadZone.classList.remove('drag-over');
+        }
+
+        // Handle dropped files
+        uploadZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        // Handle click to select files
+        uploadZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        async function handleFiles(files) {
+            uploadProgress.style.display = 'block';
+            uploadStatus.style.display = 'none';
+            uploadProgressBar.style.width = '0%';
+
+            const totalFiles = files.length;
+            let uploadedFiles = 0;
+            let errors = [];
+
+            for (const file of files) {
+                try {
+                    await uploadFile(file);
+                    uploadedFiles++;
+                } catch (error) {
+                    errors.push(`${file.name}: ${error.message}`);
+                }
+
+                // Update progress
+                const progress = (uploadedFiles / totalFiles) * 100;
+                uploadProgressBar.style.width = progress + '%';
+            }
+
+            // Show status
+            uploadStatus.style.display = 'block';
+            if (errors.length === 0) {
+                uploadStatus.className = 'upload-status success';
+                uploadStatus.textContent = `✓ Successfully uploaded ${uploadedFiles} file(s)`;
+
+                // Reload page after 1 second to show new files
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                uploadStatus.className = 'upload-status error';
+                uploadStatus.textContent = `Uploaded ${uploadedFiles}/${totalFiles} files. Errors: ${errors.join(', ')}`;
+            }
+
+            // Reset file input
+            fileInput.value = '';
+        }
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const csrfToken = getCookie('csrftoken');
+
+            const response = await fetch(`/api/people/${personId}/upload/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                },
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            return await response.json();
+        }
+    </script>
+    {% endif %}
+</body>
+</html>
