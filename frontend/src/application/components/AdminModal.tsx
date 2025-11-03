@@ -47,7 +47,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ url, onClose }) => {
         // Look for the django-admin-popup-response-constants script tag
         const observer = new MutationObserver((mutations) => {
           for (const mutation of mutations) {
-            for (const node of mutation.addedNodes) {
+            for (const node of Array.from(mutation.addedNodes)) {
               if (node instanceof HTMLElement) {
                 // Check if it's the popup response script
                 if (node.id === 'django-admin-popup-response-constants') {
