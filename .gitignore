@@ -88,4 +88,6 @@ db.sqlite3
 db*.sqlite*
 node_modules
 staticfiles
-media/person_attachments
+# Media files
+media/people/
+media/person_attachments/

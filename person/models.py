@@ -1,9 +1,7 @@
 from django.db import models
-from django.db.models import QuerySet
 from django.core.exceptions import ValidationError
-import uuid
 import os
-from django.utils.text import slugify
+import posixpath
 
 # Create your models here.
 class Person(models.Model):
@@ -76,30 +74,26 @@ class Person(models.Model):
         ]
 
     def get_attachment_folder_path(self):
-        """Generate a folder path based on the person's primary name"""
-        if not self.name:
-            return f"unknown_person_{self.id}"
-        
-        # Create a clean folder name from the person's name
-        name_parts = []
-        if self.name.last_name:
-            name_parts.append(self.name.last_name)
-        if self.name.middle_name:
-            name_parts.append(self.name.middle_name)
-        if self.name.first_name:
-            name_parts.append(self.name.first_name)
-        
-        if not name_parts:
-            return f"unknown_person_{self.id}"
-        
-        # Join name parts and slugify for filesystem safety
-        folder_name = slugify("_".join(name_parts))
-        
-        # Add birth year if available for better organization
-        if self.birth and self.birth.date:
-            folder_name += f"_{self.birth.date.year}"
-        
-        return folder_name
+        """Generate folder path in the format people/Lastname_Firstname_ID."""
+        if not self.pk:
+            return "people/Unknown_Person_unsaved"
+
+        name = self.name
+        if name:
+            parts = []
+            if name.last_name:
+                parts.append(name.last_name.capitalize())
+            if name.first_name:
+                parts.append(name.first_name.capitalize())
+
+            if parts:
+                folder_name = "_".join(parts) + f"_{self.pk}"
+            else:
+                folder_name = f"Unknown_Person_{self.pk}"
+        else:
+            folder_name = f"Unknown_Person_{self.pk}"
+
+        return f"people/{folder_name}"
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
@@ -123,15 +117,23 @@ class PersonAttachment(models.Model):
     file_type = models.CharField(max_length=50, blank=True)  # e.g., 'document', 'photo', 'certificate'
     
     def save(self, *args, **kwargs):
-        # Set the original filename if not already set
-        if not self.original_filename and hasattr(self.file, 'name'):
-            self.original_filename = os.path.basename(self.file.name)
-        
-        # Generate custom upload path based on person's name
-        if self.person:
-            folder_path = self.person.get_attachment_folder_path()
-            self.file.upload_to = f'person_attachments/{folder_path}/'
-        
+        if self.file and hasattr(self.file, "name"):
+            filename = os.path.basename(self.file.name)
+            if not self.original_filename:
+                self.original_filename = filename
+
+            if self.person:
+                folder_path = self.person.get_attachment_folder_path()
+                normalized_name = self.file.name.replace('\\', '/')
+                prefix = f"{folder_path}/"
+                if normalized_name.startswith(prefix):
+                    relative_path = normalized_name
+                else:
+                    relative_path = posixpath.join(folder_path, filename)
+
+                if self.file.name != relative_path:
+                    self.file.name = relative_path
+
         super().save(*args, **kwargs)
     
     def __str__(self):
