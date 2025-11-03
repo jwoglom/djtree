@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django import forms
 from django.contrib.admin import SimpleListFilter
 from .models import (
@@ -6,7 +6,8 @@ from .models import (
     BirthEvent, DeathEvent, MarriageEvent, DivorceEvent,
     ImmigrationEvent, CitizenshipEvent, ParentChildRelationship, PersonAttachment
 )
-from django.urls import reverse
+from django.urls import path
+from django.http import JsonResponse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.core.files.storage import default_storage
@@ -308,6 +309,7 @@ class PersonAdmin(admin.ModelAdmin):
     ordering_fields = ('birthevents__date', 'deathevents__date')
     ordering = ['-birthevents__date']  # Sort by birth date, newest to oldest
     fields = ('gender',)
+    actions = ['sync_selected_attachments']
 
     def get_formset(self, request, obj=None, **kwargs):
         """Override to prepopulate relationships from URL parameters"""
@@ -369,6 +371,37 @@ class PersonAdmin(admin.ModelAdmin):
         return death.date if death else None
     get_death_date.short_description = "Death Date"
     get_death_date.admin_order_field = 'deathevents__date'
+
+    @admin.action(description='🔄 Sync media folders with database')
+    def sync_selected_attachments(self, request, queryset):
+        """Admin action to synchronise attachments for selected persons."""
+        from .utils import sync_person_attachments
+
+        total_created = 0
+        total_existing = 0
+        errors = []
+
+        for person in queryset:
+            try:
+                stats = sync_person_attachments(person)
+                total_created += stats['files_created']
+                total_existing += stats['files_existing']
+            except Exception as exc:  # pragma: no cover - defensive
+                errors.append(f"{person.name}: {exc}")
+
+        message_parts = [
+            f"Synced {queryset.count()} person(s).",
+            f"Created {total_created} new attachment record(s).",
+            f"{total_existing} file(s) already tracked."
+        ]
+        message = " ".join(message_parts)
+
+        if errors:
+            self.message_user(request, message, level=messages.WARNING)
+            for error in errors:
+                self.message_user(request, f"Error: {error}", level=messages.ERROR)
+        else:
+            self.message_user(request, message, level=messages.SUCCESS)
 
     def save_formset(self, request, form, formset, change):
         print(f"DEBUG: PersonAdmin save_formset called for {formset.model}")
@@ -434,8 +467,42 @@ class PersonAdmin(admin.ModelAdmin):
                         print(f"DEBUG: No files field found in form_instance.files")
                 else:
                     print(f"DEBUG: Form has no files object")
-        
+
         super().save_formset(request, form, formset, change)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<int:pk>/sync/',
+                self.admin_site.admin_view(self.sync_attachments_view),
+                name='person_person_sync',
+            ),
+        ]
+        return custom_urls + urls
+
+    def sync_attachments_view(self, request, pk):
+        from .utils import sync_person_attachments
+
+        if request.method != 'POST':
+            return JsonResponse({'error': 'POST required'}, status=405)
+
+        try:
+            person = Person.objects.get(pk=pk)
+        except Person.DoesNotExist:
+            return JsonResponse({'error': 'Person not found'}, status=404)
+
+        try:
+            stats = sync_person_attachments(person)
+        except Exception as exc:  # pragma: no cover - defensive
+            return JsonResponse({'error': str(exc)}, status=500)
+
+        return JsonResponse({
+            'success': True,
+            'files_created': stats['files_created'],
+            'files_existing': stats['files_existing'],
+            'files_found': stats['files_found'],
+        })
 
 class NameAdmin(admin.ModelAdmin):
     def get_model_perms(self, request):

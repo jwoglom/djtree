@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -139,6 +140,8 @@ STATICFILES_DIRS = [
 # Media files (user uploaded content)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+DISABLE_STARTUP_SYNC = os.environ.get('DISABLE_STARTUP_SYNC', 'false').lower() == 'true'
 
 WEBPACK_LOADER = {
     'MANIFEST_FILE': BASE_DIR / "frontend/build/manifest.json",

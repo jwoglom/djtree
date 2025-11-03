@@ -35,7 +35,17 @@
                 <strong>Type:</strong> {{ attachment.file_type }}
             </div>
             {% endif %}
-            
+
+            {% if attachment.description and 'Auto-detected' in attachment.description %}
+            <span class="source-badge" style="display: inline-block; padding: 2px 8px; background: #ffc107; color: #000; border-radius: 3px; font-size: 11px; margin-top: 5px;">
+                🤖 Auto-detected
+            </span>
+            {% else %}
+            <span class="source-badge" style="display: inline-block; padding: 2px 8px; background: #007cba; color: white; border-radius: 3px; font-size: 11px; margin-top: 5px;">
+                📤 Uploaded
+            </span>
+            {% endif %}
+
             <div class="attachment-actions" style="margin-top: 10px;">
                 {% if attachment.file %}
                 <a href="{{ attachment.file.url }}" target="_blank" class="button" style="background: #007cba; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px; font-size: 12px; margin-right: 5px;">
@@ -57,6 +67,32 @@
         <p style="font-size: 16px; margin: 0;">No attachments yet. Upload some files below!</p>
     </div>
     {% endif %}
+</div>
+
+<div class="folder-info" style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-left: 4px solid #007cba; border-radius: 4px;">
+    <h3 style="margin-top: 0;">📁 Media Folder</h3>
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <code style="padding: 8px 12px; background: white; border: 1px solid #ddd; border-radius: 4px; flex: 1;">
+            {{ original.get_attachment_folder_path }}
+        </code>
+        <button type="button"
+                onclick="navigator.clipboard.writeText('{{ original.get_attachment_folder_path }}')"
+                style="padding: 8px 16px; background: #007cba; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            📋 Copy Path
+        </button>
+    </div>
+    <p style="margin: 10px 0 0; color: #666; font-size: 13px;">
+        Files placed in this folder will be automatically detected and added to this person. Subfolders are supported.
+    </p>
+</div>
+
+<div class="sync-controls" style="margin: 20px 0;">
+    <button type="button"
+            onclick="syncAttachmentsNow()"
+            style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+        🔄 Sync Folder Now
+    </button>
+    <span id="sync-status" style="margin-left: 15px; color: #666;"></span>
 </div>
 
 <div class="module aligned">
@@ -86,5 +122,46 @@
         </div>
     </div>
 </div>
+<script>
+function syncAttachmentsNow() {
+    const statusEl = document.getElementById('sync-status');
+    if (!statusEl) {
+        return;
+    }
+
+    const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    const csrfToken = csrfInput ? csrfInput.value : '';
+
+    statusEl.textContent = 'Syncing...';
+    statusEl.style.color = '#007cba';
+
+    fetch(`/admin/person/person/{{ original.pk }}/sync/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+        },
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            if (data.files_created > 0) {
+                statusEl.textContent = `✓ Created ${data.files_created} new attachment(s)`;
+                statusEl.style.color = '#28a745';
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                statusEl.textContent = `✓ All files already synced (${data.files_existing} file(s))`;
+                statusEl.style.color = '#28a745';
+            }
+        })
+        .catch(error => {
+            console.error('Sync error:', error);
+            statusEl.textContent = '✗ Sync failed';
+            statusEl.style.color = '#dc3545';
+        });
+}
+</script>
 {% endif %}
-{% endblock %} 
+{% endblock %}
